@@ -1,0 +1,25 @@
+info:
+  name: Import Transactions
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{URL}}/api/abn-amro/sync?accountNumber=NL12ABNA9999876523&userId=19720a6f-0c9a-4117-be22-8419e95bdcdb&categoryId=e21db6f7-02b0-4212-8815-0929f84e3897"
+  params:
+    - name: accountNumber
+      value: NL12ABNA9999876523
+      type: query
+    - name: userId
+      value: 19720a6f-0c9a-4117-be22-8419e95bdcdb
+      type: query
+    - name: categoryId
+      value: e21db6f7-02b0-4212-8815-0929f84e3897
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

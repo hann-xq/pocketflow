@@ -1,0 +1,20 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "coverageDirectory": "coverage-e2e",
+  "coverageReporters": ["cobertura", "lcov", "text"],
+  "collectCoverageFrom": ["<rootDir>/src/**"],
+  "coveragePathIgnorePatterns": [
+    "<rootDir>/src/main.ts",
+    "<rootDir>/src/ormconfig.ts",
+    "<rootDir>/src/ormsource.ts",
+    "<rootDir>/src/seed.ts",
+    "<rootDir>/src/.*\\.seed\\.ts$",
+    "<rootDir>/src/.*\\.spec\\.ts$"
+  ]
+}

@@ -1,0 +1,12 @@
+opencollection: 1.0.0
+info:
+  name: "Spring Boot Prototype"
+  type: workspace
+
+collections:
+  - name: "Transactions"
+    path: "collections/Transactions"
+
+specs:
+
+docs: ''
