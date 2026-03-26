@@ -78,62 +78,91 @@ npm run build
 npm run start:prod
 ```
 
-The API is available at `http://localhost:3000/api`.
+The API is available at `http://localhost:3000/api/v1`. When running via Docker, the API is available at
+`https://localhost/api/v1`.
+
+## HTTPS (Docker)
+
+When using Docker, the app runs behind Nginx, which handles secure (HTTPS) connections. Any plain HTTP request is
+automatically redirected to HTTPS. You can change the server's address via the `SERVER_NAME` environment variable
+(defaults to `localhost`).
+
+### Development
+
+On first start, a `cert-generator` init container uses `openssl` to create a self-signed certificate for `localhost`
+and stores it in a Docker volume. The certificate persists across restarts.
+
+Because the certificate is self-signed, your browser will show a security warning on the first visit. Proceed through it
+once (or add a permanent exception) and subsequent requests will work without interruption.
+
+### Production
+
+1. Set `SERVER_NAME` to your domain in the host environment or a `.env` file at the repo root:
+   ```env
+   SERVER_NAME=example.com
+   ```
+2. Place your real certificate and private key at `./nginx/certs/server.crt` and `./nginx/certs/server.key`.
+3. Start the stack with the production override:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+   ```
+
+If `SERVER_NAME` is not set, the production compose file will refuse to start.
 
 ## API Reference
 
-All routes are prefixed with `/api`.
+All routes are prefixed with `/api/v1`, except the ABN AMRO routes which are served at the root.
 
 ### Users
 
-| Method   | Path                              | Description                  |
-|----------|-----------------------------------|------------------------------|
-| `POST`   | `/api/users`                      | Create a user                |
-| `GET`    | `/api/users`                      | List all users               |
-| `GET`    | `/api/users/:id`                  | Get a user by ID             |
-| `PATCH`  | `/api/users/:id`                  | Update a user                |
-| `DELETE` | `/api/users/:id`                  | Delete a user                |
-| `GET`    | `/api/users/:id/transactions`     | List transactions for a user |
+| Method   | Path                             | Description                  |
+|----------|----------------------------------|------------------------------|
+| `POST`   | `/api/v1/users`                  | Create a user                |
+| `GET`    | `/api/v1/users`                  | List all users               |
+| `GET`    | `/api/v1/users/:id`              | Get a user by ID             |
+| `PATCH`  | `/api/v1/users/:id`              | Update a user                |
+| `DELETE` | `/api/v1/users/:id`              | Delete a user                |
+| `GET`    | `/api/v1/users/:id/transactions` | List transactions for a user |
 
 ### Categories
 
-| Method   | Path                  | Description          |
-|----------|-----------------------|----------------------|
-| `POST`   | `/api/categories`     | Create a category    |
-| `GET`    | `/api/categories`     | List all categories  |
-| `GET`    | `/api/categories/:id` | Get a category by ID |
-| `PATCH`  | `/api/categories/:id` | Update a category    |
-| `DELETE` | `/api/categories/:id` | Delete a category    |
+| Method   | Path                     | Description          |
+|----------|--------------------------|----------------------|
+| `POST`   | `/api/v1/categories`     | Create a category    |
+| `GET`    | `/api/v1/categories`     | List all categories  |
+| `GET`    | `/api/v1/categories/:id` | Get a category by ID |
+| `PATCH`  | `/api/v1/categories/:id` | Update a category    |
+| `DELETE` | `/api/v1/categories/:id` | Delete a category    |
 
 ### Tags
 
-| Method   | Path            | Description     |
-|----------|-----------------|-----------------|
-| `POST`   | `/api/tags`     | Create a tag    |
-| `GET`    | `/api/tags`     | List all tags   |
-| `GET`    | `/api/tags/:id` | Get a tag by ID |
-| `PATCH`  | `/api/tags/:id` | Update a tag    |
-| `DELETE` | `/api/tags/:id` | Delete a tag    |
+| Method   | Path               | Description     |
+|----------|--------------------|-----------------|
+| `POST`   | `/api/v1/tags`     | Create a tag    |
+| `GET`    | `/api/v1/tags`     | List all tags   |
+| `GET`    | `/api/v1/tags/:id` | Get a tag by ID |
+| `PATCH`  | `/api/v1/tags/:id` | Update a tag    |
+| `DELETE` | `/api/v1/tags/:id` | Delete a tag    |
 
 ### Transactions
 
-| Method   | Path                                  | Description                          |
-|----------|---------------------------------------|--------------------------------------|
-| `POST`   | `/api/transactions`                   | Create a transaction                 |
-| `GET`    | `/api/users/:userId/transactions`     | List transactions for a user         |
-| `GET`    | `/api/transactions/:id`               | Get a transaction by ID              |
-| `PATCH`  | `/api/transactions/:id`               | Update a transaction                 |
-| `DELETE` | `/api/transactions/:id`               | Delete a transaction                 |
+| Method   | Path                                 | Description                  |
+|----------|--------------------------------------|------------------------------|
+| `POST`   | `/api/v1/transactions`               | Create a transaction         |
+| `GET`    | `/api/v1/users/:userId/transactions` | List transactions for a user |
+| `GET`    | `/api/v1/transactions/:id`           | Get a transaction by ID      |
+| `PATCH`  | `/api/v1/transactions/:id`           | Update a transaction         |
+| `DELETE` | `/api/v1/transactions/:id`           | Delete a transaction         |
 
 ### ABN AMRO
 
-| Method | Path                      | Description                                                              |
-|--------|---------------------------|--------------------------------------------------------------------------|
-| `GET`  | `/api/abn-amro/authorize` | Redirect to the ABN AMRO consent page                                    |
-| `GET`  | `/api/abn-amro/callback`  | Receive the authorization code from ABN AMRO and exchange it for a token |
-| `POST` | `/api/abn-amro/sync`      | Fetch transactions from ABN AMRO and persist them                        |
+| Method | Path                    | Description                                                              |
+|--------|-------------------------|--------------------------------------------------------------------------|
+| `GET`  | `/abn-amro/authorize`   | Redirect to the ABN AMRO consent page                                    |
+| `GET`  | `/auth`                 | Receive the authorization code from ABN AMRO and exchange it for a token |
+| `POST` | `/api/v1/abn-amro/sync` | Fetch transactions from ABN AMRO and persist them                        |
 
-Query parameters for `/api/abn-amro/sync`:
+Query parameters for `/api/v1/abn-amro/sync`:
 
 - `accountNumber` (required): IBAN of the account to fetch transactions from
 - `userId` (optional): Assign imported transactions to this user ID
@@ -145,17 +174,10 @@ Query parameters for `/api/abn-amro/sync`:
 
 ```bash
 # 1. Open in a browser — redirects to the ABN AMRO consent page
-open http://localhost:3000/api/abn-amro/authorize
+open https://localhost/abn-amro/authorize
 
-# 2. After granting consent ABN AMRO redirects to https://localhost/auth?code=<code>
-#    The browser will show an error (nothing listens there); that is expected.
-#    Copy the code= value from the address bar and exchange it for a token:
-curl "http://localhost:3000/api/abn-amro/callback?code=<authorization_code>"
-#    The response includes the access token. Save it in ABN_AMRO_ACCESS_TOKEN
-#    in .env so you do not have to repeat the OAuth2 flow on the next restart.
-
-# 3. Sync transactions
-curl -X POST "http://localhost:3000/api/abn-amro/sync?accountNumber=NL12ABNA9999876523&userId=<uuid>&categoryId=<uuid>"
+# 2. Sync transactions
+curl -X POST "https://localhost/api/v1/abn-amro/sync?accountNumber=NL12ABNA9999876523&userId=<uuid>&categoryId=<uuid>"
 ```
 
 ## ABN AMRO integration
@@ -172,18 +194,15 @@ be retrieved.
 The ABN AMRO sandbox hardcodes the OAuth2 redirect URI to `https://localhost/auth`. This value **cannot be changed** for
 sandbox applications — the developer portal does not allow registering a different URI for sandbox apps.
 
-As a result, after the user grants consent, the browser is redirected to `https://localhost/auth?code=<code>`, which
-will fail with a connection error because nothing is listening there. This is expected. To complete the flow:
+Nginx listens on port `443` and proxies to the server, so `https://localhost/auth` is handled directly by the `/auth`
+endpoint. The response contains the access token:
 
-1. Copy the value of the `code` query parameter.
-2. Call the callback endpoint manually, passing that code:
-   ```bash
-   curl "http://localhost:3000/api/abn-amro/callback?code=<code>"
-   ```
-3. The response contains the access token:
-   ```json
-   { "message": "Authorization successful. You may now sync transactions.", "accessToken": "eyJ..." }
-   ```
+```json
+{
+  "message": "Authorization successful. You may now sync transactions.",
+  "accessToken": "eyJ..."
+}
+```
 
 #### Persisting the access token across restarts
 

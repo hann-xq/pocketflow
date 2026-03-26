@@ -2,8 +2,6 @@ services:
   server:
     build:
       context: ./apps/server
-    ports:
-      - "3000:3000"
     env_file:
       - ./apps/server/.env
     environment:
@@ -11,6 +9,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Templates in /etc/nginx/templates/ are processed with envsubst on startup
+      # https://hub.docker.com/_/nginx#using-environment-variables-in-nginx-configuration-new-in-119
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      SERVER_NAME: ${SERVER_NAME:-localhost}
+    depends_on:
+      - server
 
   postgres:
     image: postgres:17-alpine
@@ -29,5 +41,4 @@ services:
       retries: 5
 
 volumes:
-  server_node_modules:
   postgres_data:

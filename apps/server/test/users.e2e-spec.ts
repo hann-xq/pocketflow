@@ -38,10 +38,10 @@ describe('Users (e2e)', () => {
     await tagRepo.clear();
   });
 
-  describe('POST /api/users', () => {
+  describe('POST /api/v1/users', () => {
     it('creates a user and returns 201', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'test@example.com', password: 'password123' })
         .expect(201);
 
@@ -52,7 +52,7 @@ describe('Users (e2e)', () => {
 
     it('does not expose the password in the response', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'test@example.com', password: 'password123' })
         .expect(201);
 
@@ -61,11 +61,11 @@ describe('Users (e2e)', () => {
 
     it('returns 409 for duplicate email', async () => {
       await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'dup@example.com', password: 'password123' });
 
       const res = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'dup@example.com', password: 'password123' })
         .expect(409);
 
@@ -74,21 +74,21 @@ describe('Users (e2e)', () => {
 
     it('returns 400 for invalid email', async () => {
       await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'not-an-email', password: 'password123' })
         .expect(400);
     });
 
     it('returns 400 for password shorter than 8 characters', async () => {
       await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'test@example.com', password: 'short' })
         .expect(400);
     });
 
     it('returns 400 for unknown fields (forbidNonWhitelisted)', async () => {
       await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({
           email: 'test@example.com',
           password: 'password123',
@@ -99,30 +99,30 @@ describe('Users (e2e)', () => {
 
     it('returns 400 when email is missing', async () => {
       await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ password: 'password123' })
         .expect(400);
     });
   });
 
-  describe('GET /api/users', () => {
+  describe('GET /api/v1/users', () => {
     it('returns an empty array when no users exist', async () => {
       const res = await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/v1/users')
         .expect(200);
       expect(res.body).toEqual([]);
     });
 
     it('returns all users', async () => {
       await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'a@example.com', password: 'password123' });
       await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'b@example.com', password: 'password123' });
 
       const res = await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/v1/users')
         .expect(200);
 
       expect(res.body).toHaveLength(2);
@@ -133,25 +133,25 @@ describe('Users (e2e)', () => {
 
     it('does not expose passwords in the response', async () => {
       await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'a@example.com', password: 'password123' });
 
       const res = await request(app.getHttpServer())
-        .get('/api/users')
+        .get('/api/v1/users')
         .expect(200);
 
       res.body.forEach((u: any) => expect(u.password).toBeUndefined());
     });
   });
 
-  describe('GET /api/users/:id', () => {
+  describe('GET /api/v1/users/:id', () => {
     it('returns the user for a valid id', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'find@example.com', password: 'password123' });
 
       const res = await request(app.getHttpServer())
-        .get(`/api/users/${created.body.id}`)
+        .get(`/api/v1/users/${created.body.id}`)
         .expect(200);
 
       expect(res.body.email).toBe('find@example.com');
@@ -159,11 +159,11 @@ describe('Users (e2e)', () => {
 
     it('does not expose the password in the response', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'find@example.com', password: 'password123' });
 
       const res = await request(app.getHttpServer())
-        .get(`/api/users/${created.body.id}`)
+        .get(`/api/v1/users/${created.body.id}`)
         .expect(200);
 
       expect(res.body.password).toBeUndefined();
@@ -171,23 +171,23 @@ describe('Users (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .get('/api/users/00000000-0000-0000-0000-000000000000')
+        .get('/api/v1/users/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
 
     it('returns 400 for an invalid id', async () => {
-      await request(app.getHttpServer()).get('/api/users/abc').expect(400);
+      await request(app.getHttpServer()).get('/api/v1/users/abc').expect(400);
     });
   });
 
-  describe('PATCH /api/users/:id', () => {
+  describe('PATCH /api/v1/users/:id', () => {
     it('updates the user email', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'before@example.com', password: 'password123' });
 
       const res = await request(app.getHttpServer())
-        .patch(`/api/users/${created.body.id}`)
+        .patch(`/api/v1/users/${created.body.id}`)
         .send({ email: 'after@example.com' })
         .expect(200);
 
@@ -196,11 +196,11 @@ describe('Users (e2e)', () => {
 
     it('hashes the password on update', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'pwupdate@example.com', password: 'password123' });
 
       const res = await request(app.getHttpServer())
-        .patch(`/api/users/${created.body.id}`)
+        .patch(`/api/v1/users/${created.body.id}`)
         .send({ password: 'newpassword123' })
         .expect(200);
 
@@ -209,11 +209,11 @@ describe('Users (e2e)', () => {
 
     it('does not expose the password in the response', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'pwupdate@example.com', password: 'password123' });
 
       const res = await request(app.getHttpServer())
-        .patch(`/api/users/${created.body.id}`)
+        .patch(`/api/v1/users/${created.body.id}`)
         .send({ email: 'updated@example.com' })
         .expect(200);
 
@@ -222,30 +222,30 @@ describe('Users (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .patch('/api/users/00000000-0000-0000-0000-000000000000')
+        .patch('/api/v1/users/00000000-0000-0000-0000-000000000000')
         .send({ email: 'x@example.com' })
         .expect(404);
     });
   });
 
-  describe('DELETE /api/users/:id', () => {
+  describe('DELETE /api/v1/users/:id', () => {
     it('deletes the user and returns 204', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'delete@example.com', password: 'password123' });
 
       await request(app.getHttpServer())
-        .delete(`/api/users/${created.body.id}`)
+        .delete(`/api/v1/users/${created.body.id}`)
         .expect(204);
 
       await request(app.getHttpServer())
-        .get(`/api/users/${created.body.id}`)
+        .get(`/api/v1/users/${created.body.id}`)
         .expect(404);
     });
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .delete('/api/users/00000000-0000-0000-0000-000000000000')
+        .delete('/api/v1/users/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
   });

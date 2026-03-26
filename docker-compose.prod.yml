@@ -3,3 +3,12 @@ services:
     build:
       target: prod
     restart: unless-stopped
+
+  nginx:
+    environment:
+      # Must be set in the host environment or a .env file at the repo root
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME must be set for production (e.g. example.com)}
+    # Place your real certificate and private key at ./nginx/certs/server.crt and ./nginx/certs/server.key
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs:ro
+    restart: unless-stopped

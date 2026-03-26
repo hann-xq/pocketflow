@@ -38,10 +38,10 @@ describe('Categories (e2e)', () => {
     await tagRepo.clear();
   });
 
-  describe('POST /api/categories', () => {
+  describe('POST /api/v1/categories', () => {
     it('creates a category and returns 201', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Groceries', description: 'Food and drink' })
         .expect(201);
 
@@ -54,7 +54,7 @@ describe('Categories (e2e)', () => {
 
     it('creates a category without optional description', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Transport' })
         .expect(201);
 
@@ -63,11 +63,11 @@ describe('Categories (e2e)', () => {
 
     it('returns 409 for duplicate name', async () => {
       await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Utilities' });
 
       const res = await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Utilities' })
         .expect(409);
 
@@ -76,37 +76,37 @@ describe('Categories (e2e)', () => {
 
     it('returns 400 when name is missing', async () => {
       await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ description: 'No name here' })
         .expect(400);
     });
 
     it('returns 400 for unknown fields', async () => {
       await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Valid', color: 'red' })
         .expect(400);
     });
   });
 
-  describe('GET /api/categories', () => {
+  describe('GET /api/v1/categories', () => {
     it('returns an empty array when no categories exist', async () => {
       const res = await request(app.getHttpServer())
-        .get('/api/categories')
+        .get('/api/v1/categories')
         .expect(200);
       expect(res.body).toEqual([]);
     });
 
     it('returns all categories', async () => {
       await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Food' });
       await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Travel' });
 
       const res = await request(app.getHttpServer())
-        .get('/api/categories')
+        .get('/api/v1/categories')
         .expect(200);
 
       expect(res.body).toHaveLength(2);
@@ -116,14 +116,14 @@ describe('Categories (e2e)', () => {
     });
   });
 
-  describe('GET /api/categories/:id', () => {
+  describe('GET /api/v1/categories/:id', () => {
     it('returns the category for a valid id', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Entertainment', description: 'Fun stuff' });
 
       const res = await request(app.getHttpServer())
-        .get(`/api/categories/${created.body.id}`)
+        .get(`/api/v1/categories/${created.body.id}`)
         .expect(200);
 
       expect(res.body).toMatchObject({
@@ -134,23 +134,23 @@ describe('Categories (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .get('/api/categories/00000000-0000-0000-0000-000000000000')
+        .get('/api/v1/categories/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
 
     it('returns 400 for an invalid id', async () => {
-      await request(app.getHttpServer()).get('/api/categories/abc').expect(400);
+      await request(app.getHttpServer()).get('/api/v1/categories/abc').expect(400);
     });
   });
 
-  describe('PATCH /api/categories/:id', () => {
+  describe('PATCH /api/v1/categories/:id', () => {
     it('updates the category name', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'OldName' });
 
       const res = await request(app.getHttpServer())
-        .patch(`/api/categories/${created.body.id}`)
+        .patch(`/api/v1/categories/${created.body.id}`)
         .send({ name: 'NewName' })
         .expect(200);
 
@@ -159,11 +159,11 @@ describe('Categories (e2e)', () => {
 
     it('updates the description', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'WithDesc', description: 'Old desc' });
 
       const res = await request(app.getHttpServer())
-        .patch(`/api/categories/${created.body.id}`)
+        .patch(`/api/v1/categories/${created.body.id}`)
         .send({ description: 'New desc' })
         .expect(200);
 
@@ -172,30 +172,30 @@ describe('Categories (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .patch('/api/categories/00000000-0000-0000-0000-000000000000')
+        .patch('/api/v1/categories/00000000-0000-0000-0000-000000000000')
         .send({ name: 'Ghost' })
         .expect(404);
     });
   });
 
-  describe('DELETE /api/categories/:id', () => {
+  describe('DELETE /api/v1/categories/:id', () => {
     it('deletes the category and returns 204', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'ToDelete' });
 
       await request(app.getHttpServer())
-        .delete(`/api/categories/${created.body.id}`)
+        .delete(`/api/v1/categories/${created.body.id}`)
         .expect(204);
 
       await request(app.getHttpServer())
-        .get(`/api/categories/${created.body.id}`)
+        .get(`/api/v1/categories/${created.body.id}`)
         .expect(404);
     });
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .delete('/api/categories/00000000-0000-0000-0000-000000000000')
+        .delete('/api/v1/categories/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
   });

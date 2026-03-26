@@ -38,10 +38,10 @@ describe('Tags (e2e)', () => {
     await tagRepo.clear();
   });
 
-  describe('POST /api/tags', () => {
+  describe('POST /api/v1/tags', () => {
     it('creates a tag and returns 201', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'recurring' })
         .expect(201);
 
@@ -51,11 +51,11 @@ describe('Tags (e2e)', () => {
 
     it('returns 409 for duplicate name', async () => {
       await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'important' });
 
       const res = await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'important' })
         .expect(409);
 
@@ -63,42 +63,42 @@ describe('Tags (e2e)', () => {
     });
 
     it('returns 400 when name is missing', async () => {
-      await request(app.getHttpServer()).post('/api/tags').send({}).expect(400);
+      await request(app.getHttpServer()).post('/api/v1/tags').send({}).expect(400);
     });
 
     it('returns 400 when name is empty', async () => {
       await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: '' })
         .expect(400);
     });
 
     it('returns 400 for unknown fields', async () => {
       await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'valid', color: 'blue' })
         .expect(400);
     });
   });
 
-  describe('GET /api/tags', () => {
+  describe('GET /api/v1/tags', () => {
     it('returns an empty array when no tags exist', async () => {
       const res = await request(app.getHttpServer())
-        .get('/api/tags')
+        .get('/api/v1/tags')
         .expect(200);
       expect(res.body).toEqual([]);
     });
 
     it('returns all tags', async () => {
       await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'work' });
       await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'personal' });
 
       const res = await request(app.getHttpServer())
-        .get('/api/tags')
+        .get('/api/v1/tags')
         .expect(200);
 
       expect(res.body).toHaveLength(2);
@@ -108,14 +108,14 @@ describe('Tags (e2e)', () => {
     });
   });
 
-  describe('GET /api/tags/:id', () => {
+  describe('GET /api/v1/tags/:id', () => {
     it('returns the tag for a valid id', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'subscriptions' });
 
       const res = await request(app.getHttpServer())
-        .get(`/api/tags/${created.body.id}`)
+        .get(`/api/v1/tags/${created.body.id}`)
         .expect(200);
 
       expect(res.body.name).toBe('subscriptions');
@@ -123,23 +123,23 @@ describe('Tags (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .get('/api/tags/00000000-0000-0000-0000-000000000000')
+        .get('/api/v1/tags/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
 
     it('returns 400 for an invalid id', async () => {
-      await request(app.getHttpServer()).get('/api/tags/abc').expect(400);
+      await request(app.getHttpServer()).get('/api/v1/tags/abc').expect(400);
     });
   });
 
-  describe('PATCH /api/tags/:id', () => {
+  describe('PATCH /api/v1/tags/:id', () => {
     it('updates the tag name', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'old-tag' });
 
       const res = await request(app.getHttpServer())
-        .patch(`/api/tags/${created.body.id}`)
+        .patch(`/api/v1/tags/${created.body.id}`)
         .send({ name: 'new-tag' })
         .expect(200);
 
@@ -148,30 +148,30 @@ describe('Tags (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .patch('/api/tags/00000000-0000-0000-0000-000000000000')
+        .patch('/api/v1/tags/00000000-0000-0000-0000-000000000000')
         .send({ name: 'ghost' })
         .expect(404);
     });
   });
 
-  describe('DELETE /api/tags/:id', () => {
+  describe('DELETE /api/v1/tags/:id', () => {
     it('deletes the tag and returns 204', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/tags')
+        .post('/api/v1/tags')
         .send({ name: 'to-delete' });
 
       await request(app.getHttpServer())
-        .delete(`/api/tags/${created.body.id}`)
+        .delete(`/api/v1/tags/${created.body.id}`)
         .expect(204);
 
       await request(app.getHttpServer())
-        .get(`/api/tags/${created.body.id}`)
+        .get(`/api/v1/tags/${created.body.id}`)
         .expect(404);
     });
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .delete('/api/tags/00000000-0000-0000-0000-000000000000')
+        .delete('/api/v1/tags/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
   });

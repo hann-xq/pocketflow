@@ -1,17 +1,10 @@
-import {
-  ClassSerializerInterceptor,
-  INestApplication,
-  ModuleMetadata,
-  ValidationPipe,
-} from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { INestApplication, ModuleMetadata } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { useContainer } from 'class-validator';
 import { App } from 'supertest/types';
-import { DomainExceptionFilter } from '../src/common/filters/domain-exception.filter';
-import { TypeOrmExceptionFilter } from '../src/common/filters/typeorm-exception.filter';
+import { configureApp } from '../src/server';
 
 export async function createTestApp(
   imports?: ModuleMetadata['imports'],
@@ -34,21 +27,7 @@ export async function createTestApp(
 
   const app = module.createNestApplication();
 
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
-
-  app.useGlobalFilters(
-    new DomainExceptionFilter(),
-    new TypeOrmExceptionFilter(),
-  );
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
-  app.setGlobalPrefix('api');
+  configureApp(app);
 
   await app.init();
 

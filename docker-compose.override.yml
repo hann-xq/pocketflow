@@ -5,12 +5,27 @@ services:
     volumes:
       - ./apps/server/src:/app/src
       - ./apps/server/certs:/app/certs:ro
-      - server_node_modules:/app/node_modules
     environment:
       # Polling ensures file-watching works with Docker volume mounts on Windows/macOS
       # https://stackoverflow.com/q/44643045/11549526
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
+
+  # Generates a self-signed TLS certificate for localhost on the first run.
+  cert-generator:
+    image: alpine
+    volumes:
+      - nginx_certs:/certs
+      - ./nginx/generate-cert.sh:/generate-cert.sh:ro
+    command: sh -c "apk add --no-cache openssl > /dev/null && sh /generate-cert.sh"
+    restart: "no"
+
+  nginx:
+    volumes:
+      - nginx_certs:/etc/nginx/certs:ro
+    depends_on:
+      cert-generator:
+        condition: service_completed_successfully
 
   seeder:
     build:
@@ -18,7 +33,6 @@ services:
       target: dev
     volumes:
       - ./apps/server/src:/app/src
-      - server_node_modules:/app/node_modules
     env_file:
       - ./apps/server/.env
     environment:
@@ -28,3 +42,6 @@ services:
         condition: service_healthy
     command: npm run seed
     restart: "no"
+
+volumes:
+  nginx_certs:

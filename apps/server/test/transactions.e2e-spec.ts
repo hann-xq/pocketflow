@@ -52,25 +52,25 @@ describe('Transactions (e2e)', () => {
 
     // Seed shared fixtures used by multiple tests
     const user = await request(app.getHttpServer())
-      .post('/api/users')
+      .post('/api/v1/users')
       .send({ email: 'tx@example.com', password: 'password123' });
     userId = user.body.id;
 
     const category = await request(app.getHttpServer())
-      .post('/api/categories')
+      .post('/api/v1/categories')
       .send({ name: 'Shopping' });
     categoryId = category.body.id;
 
     const tag = await request(app.getHttpServer())
-      .post('/api/tags')
+      .post('/api/v1/tags')
       .send({ name: 'online' });
     tagId = tag.body.id;
   });
 
-  describe('POST /api/transactions', () => {
+  describe('POST /api/v1/transactions', () => {
     it('creates a minimal transaction and returns 201', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -42.5, date: '2024-01-15' })
         .expect(201);
 
@@ -81,7 +81,7 @@ describe('Transactions (e2e)', () => {
 
     it('creates a fully populated transaction', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({
           amount: -99.99,
           date: '2024-03-01',
@@ -103,44 +103,44 @@ describe('Transactions (e2e)', () => {
 
     it('returns 400 when amount is missing', async () => {
       await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ date: '2024-01-15' })
         .expect(400);
     });
 
     it('returns 400 when date is missing', async () => {
       await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -10 })
         .expect(400);
     });
 
     it('returns 400 for an invalid date format', async () => {
       await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -10, date: 'not-a-date' })
         .expect(400);
     });
 
     it('returns 400 for unknown fields', async () => {
       await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -10, date: '2024-01-15', extra: 'field' })
         .expect(400);
     });
   });
 
-  describe('GET /api/users/:userId/transactions', () => {
+  describe('GET /api/v1/users/:userId/transactions', () => {
     it('returns an empty array when the user has no transactions', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/api/users/${userId}/transactions`)
+        .get(`/api/v1/users/${userId}/transactions`)
         .expect(200);
       expect(res.body).toEqual([]);
     });
 
     it('returns transactions for the user with relations', async () => {
       await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({
           amount: -20,
           date: '2024-01-10',
@@ -150,7 +150,7 @@ describe('Transactions (e2e)', () => {
         });
 
       const res = await request(app.getHttpServer())
-        .get(`/api/users/${userId}/transactions`)
+        .get(`/api/v1/users/${userId}/transactions`)
         .expect(200);
 
       expect(res.body).toHaveLength(1);
@@ -163,14 +163,14 @@ describe('Transactions (e2e)', () => {
 
     it('only returns transactions belonging to the specified user', async () => {
       await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -10, date: '2024-01-01', userId });
       await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -20, date: '2024-01-02' });
 
       const res = await request(app.getHttpServer())
-        .get(`/api/users/${userId}/transactions`)
+        .get(`/api/v1/users/${userId}/transactions`)
         .expect(200);
 
       expect(res.body).toHaveLength(1);
@@ -179,15 +179,15 @@ describe('Transactions (e2e)', () => {
 
     it('returns 400 for an invalid user id', async () => {
       await request(app.getHttpServer())
-        .get('/api/users/not-a-uuid/transactions')
+        .get('/api/v1/users/not-a-uuid/transactions')
         .expect(400);
     });
   });
 
-  describe('GET /api/transactions/:id', () => {
+  describe('GET /api/v1/transactions/:id', () => {
     it('returns the transaction with relations for a valid id', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({
           amount: -55,
           date: '2024-06-01',
@@ -196,7 +196,7 @@ describe('Transactions (e2e)', () => {
         });
 
       const res = await request(app.getHttpServer())
-        .get(`/api/transactions/${created.body.id}`)
+        .get(`/api/v1/transactions/${created.body.id}`)
         .expect(200);
 
       expect(Number(res.body.amount)).toBe(-55);
@@ -206,25 +206,25 @@ describe('Transactions (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .get('/api/transactions/00000000-0000-0000-0000-000000000000')
+        .get('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
 
     it('returns 400 for an invalid id', async () => {
       await request(app.getHttpServer())
-        .get('/api/transactions/abc')
+        .get('/api/v1/transactions/abc')
         .expect(400);
     });
   });
 
-  describe('PATCH /api/transactions/:id', () => {
+  describe('PATCH /api/v1/transactions/:id', () => {
     it('updates the transaction amount and description', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -10, date: '2024-01-01' });
 
       const res = await request(app.getHttpServer())
-        .patch(`/api/transactions/${created.body.id}`)
+        .patch(`/api/v1/transactions/${created.body.id}`)
         .send({ amount: -25, description: 'Updated desc' })
         .expect(200);
 
@@ -234,16 +234,16 @@ describe('Transactions (e2e)', () => {
 
     it('removes all tags from a transaction', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -10, date: '2024-01-01', tagIds: [tagId] });
 
       await request(app.getHttpServer())
-        .patch(`/api/transactions/${created.body.id}`)
+        .patch(`/api/v1/transactions/${created.body.id}`)
         .send({ tagIds: [] })
         .expect(200);
 
       const fetched = await request(app.getHttpServer())
-        .get(`/api/transactions/${created.body.id}`)
+        .get(`/api/v1/transactions/${created.body.id}`)
         .expect(200);
 
       expect(fetched.body.tags).toHaveLength(0);
@@ -251,30 +251,30 @@ describe('Transactions (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .patch('/api/transactions/00000000-0000-0000-0000-000000000000')
+        .patch('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
         .send({ amount: -5 })
         .expect(404);
     });
   });
 
-  describe('DELETE /api/transactions/:id', () => {
+  describe('DELETE /api/v1/transactions/:id', () => {
     it('deletes the transaction and returns 204', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/transactions')
+        .post('/api/v1/transactions')
         .send({ amount: -10, date: '2024-01-01' });
 
       await request(app.getHttpServer())
-        .delete(`/api/transactions/${created.body.id}`)
+        .delete(`/api/v1/transactions/${created.body.id}`)
         .expect(204);
 
       await request(app.getHttpServer())
-        .get(`/api/transactions/${created.body.id}`)
+        .get(`/api/v1/transactions/${created.body.id}`)
         .expect(404);
     });
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .delete('/api/transactions/00000000-0000-0000-0000-000000000000')
+        .delete('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
   });

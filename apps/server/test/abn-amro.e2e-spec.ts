@@ -53,10 +53,10 @@ describe('AbnAmro (e2e)', () => {
     await tagRepo.clear();
   });
 
-  describe('POST /api/abn-amro/sync', () => {
+  describe('POST /api/v1/abn-amro/sync', () => {
     it('returns an error when accountNumber query parameter is missing', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/abn-amro/sync')
+        .post('/api/v1/abn-amro/sync')
         .expect(200);
 
       expect(res.body).toMatchObject({
@@ -132,7 +132,7 @@ describe('AbnAmro (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post(`/api/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
         .expect(200);
 
       expect(res.body).toMatchObject({ imported: 2, errors: [] });
@@ -143,10 +143,10 @@ describe('AbnAmro (e2e)', () => {
 
     it('assigns userId and categoryId when provided as query params', async () => {
       const userRes = await request(app.getHttpServer())
-        .post('/api/users')
+        .post('/api/v1/users')
         .send({ email: 'sync@example.com', password: 'password123' });
       const categoryRes = await request(app.getHttpServer())
-        .post('/api/categories')
+        .post('/api/v1/categories')
         .send({ name: 'Imported' });
 
       jest
@@ -201,7 +201,7 @@ describe('AbnAmro (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post(
-          `/api/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userRes.body.id}&categoryId=${categoryRes.body.id}`,
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userRes.body.id}&categoryId=${categoryRes.body.id}`,
         )
         .expect(200);
 
@@ -295,7 +295,7 @@ describe('AbnAmro (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post(`/api/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
         .expect(200);
 
       expect(res.body).toMatchObject({ imported: 2, errors: [] });

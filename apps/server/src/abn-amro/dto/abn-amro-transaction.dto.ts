@@ -1,9 +1,3 @@
-export interface AbnAmroTokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-}
-
 export interface AbnAmroTransaction {
   transactionId: string;
   bookDate: string;

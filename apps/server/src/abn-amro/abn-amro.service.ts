@@ -9,8 +9,8 @@ import { DomainException } from '../common/exceptions/domain.exception';
 import { NotAuthorizedException } from '../common/exceptions/not-authorized.exception';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Transaction } from '../transactions/entities/transaction.entity';
+import { AbnAmroTokenResponse } from './dto/abn-amro-token.dto';
 import {
-  AbnAmroTokenResponse,
   AbnAmroTransaction,
   AbnAmroTransactionsResponse,
 } from './dto/abn-amro-transaction.dto';
