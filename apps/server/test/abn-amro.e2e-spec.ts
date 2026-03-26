@@ -3,7 +3,6 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, Repository } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
-import { ConfigService } from '@nestjs/config';
 import { of } from 'rxjs';
 import { Transaction } from '../src/transactions/entities/transaction.entity';
 import { User } from '../src/users/entities/user.entity';
@@ -11,6 +10,7 @@ import { Category } from '../src/categories/entities/category.entity';
 import { Tag } from '../src/tags/entities/tag.entity';
 import { createTestApp } from './test-utils';
 import { AbnAmroModule } from '../src/abn-amro/abn-amro.module';
+import { AbnAmroService } from '../src/abn-amro/abn-amro.service';
 import { UsersModule } from '../src/users/users.module';
 import { CategoriesModule } from '../src/categories/categories.module';
 
@@ -23,7 +23,7 @@ describe('AbnAmro (e2e)', () => {
   let categoryRepo: Repository<Category>;
   let tagRepo: Repository<Tag>;
   let httpService: HttpService;
-  let configService: ConfigService;
+  let abnAmroService: AbnAmroService;
 
   beforeAll(async () => {
     app = await createTestApp([AbnAmroModule, UsersModule, CategoriesModule]);
@@ -36,7 +36,7 @@ describe('AbnAmro (e2e)', () => {
     tagRepo = dataSource.getRepository(Tag);
 
     httpService = app.get(HttpService);
-    configService = app.get(ConfigService);
+    abnAmroService = app.get(AbnAmroService);
   });
 
   afterAll(async () => {
@@ -45,6 +45,9 @@ describe('AbnAmro (e2e)', () => {
 
   beforeEach(async () => {
     jest.restoreAllMocks();
+    jest
+      .spyOn(abnAmroService as any, 'getStoredToken')
+      .mockReturnValue('mock-token');
 
     const transactions = await transactionRepo.find({ relations: ['tags'] });
     await transactionRepo.remove(transactions);
@@ -68,32 +71,6 @@ describe('AbnAmro (e2e)', () => {
     });
 
     it('imports transactions and returns the count', async () => {
-      jest
-        .spyOn(configService, 'get')
-        .mockImplementation((key: string, defaultValue?: any) => {
-          const values: Record<string, string> = {
-            ABN_AMRO_AUTH_URL: 'https://auth.example.com/token',
-            ABN_AMRO_API_URL: 'https://api.example.com',
-            ABN_AMRO_CLIENT_ID: 'client-id',
-            ABN_AMRO_CLIENT_SECRET: 'client-secret',
-          };
-          return values[key] ?? defaultValue;
-        });
-
-      jest.spyOn(httpService, 'post').mockReturnValueOnce(
-        of({
-          data: {
-            access_token: 'mock-token',
-            token_type: 'Bearer',
-            expires_in: 3600,
-          },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: {} as any,
-        }),
-      );
-
       jest.spyOn(httpService, 'get').mockReturnValueOnce(
         of({
           data: {
@@ -149,30 +126,6 @@ describe('AbnAmro (e2e)', () => {
         .post('/api/v1/categories')
         .send({ name: 'Imported' });
 
-      jest
-        .spyOn(configService, 'get')
-        .mockImplementation((key: string, defaultValue?: any) => {
-          const values: Record<string, string> = {
-            ABN_AMRO_AUTH_URL: 'https://auth.example.com/token',
-            ABN_AMRO_API_URL: 'https://api.example.com',
-          };
-          return values[key] ?? defaultValue;
-        });
-
-      jest.spyOn(httpService, 'post').mockReturnValueOnce(
-        of({
-          data: {
-            access_token: 'mock-token',
-            token_type: 'Bearer',
-            expires_in: 3600,
-          },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: {} as any,
-        }),
-      );
-
       jest.spyOn(httpService, 'get').mockReturnValueOnce(
         of({
           data: {
@@ -216,30 +169,6 @@ describe('AbnAmro (e2e)', () => {
     });
 
     it('paginates through multiple pages of transactions', async () => {
-      jest
-        .spyOn(configService, 'get')
-        .mockImplementation((key: string, defaultValue?: any) => {
-          const values: Record<string, string> = {
-            ABN_AMRO_AUTH_URL: 'https://auth.example.com/token',
-            ABN_AMRO_API_URL: 'https://api.example.com',
-          };
-          return values[key] ?? defaultValue;
-        });
-
-      jest.spyOn(httpService, 'post').mockReturnValueOnce(
-        of({
-          data: {
-            access_token: 'mock-token',
-            token_type: 'Bearer',
-            expires_in: 3600,
-          },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: {} as any,
-        }),
-      );
-
       const mockGet = jest.spyOn(httpService, 'get');
 
       mockGet.mockReturnValueOnce(
