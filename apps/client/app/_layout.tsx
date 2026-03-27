@@ -1,4 +1,5 @@
 import { initDatabase, seedDatabase } from "@/database/database";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
@@ -6,6 +7,8 @@ import { AppRegistry, Image, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider } from 'react-native-paper';
 import './global.css';
+
+const queryClient = new QueryClient();
 
 const logo = require('../assets/images/logo.png');
 
@@ -27,7 +30,6 @@ export default function RootLayout() {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
-    console.log(hasHardware, isEnrolled);
     if (!hasHardware || !isEnrolled) {
       setIsAuthenticated(true);
       return;
@@ -87,16 +89,22 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView>
-      <PaperProvider>
-        <Stack>
-          <Stack.Screen
-            name="(tabs)"
-            options={{ headerShown: false }}
-          />
-        </Stack>
-      </PaperProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView>
+        <PaperProvider>
+          <Stack>
+            <Stack.Screen
+              name="(tabs)"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="transactions/[id]"
+              options={{ headerShown: false }}
+            />
+          </Stack>
+        </PaperProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }
 
