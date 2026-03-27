@@ -4,6 +4,7 @@ import { AbnAmroService } from './abn-amro.service';
 import { AbnAmroController } from './abn-amro.controller';
 import { AbnAmroAuthController } from './abn-amro-auth.controller';
 import { TransactionsModule } from '../transactions/transactions.module';
+import { BankAccountsModule } from '../bank-accounts/bank-accounts.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { TransactionsModule } from '../transactions/transactions.module';
       maxRedirects: 3,
     }),
     TransactionsModule,
+    BankAccountsModule,
   ],
   controllers: [AbnAmroController, AbnAmroAuthController],
   providers: [AbnAmroService],

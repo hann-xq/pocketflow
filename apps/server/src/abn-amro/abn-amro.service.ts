@@ -9,6 +9,7 @@ import { DomainException } from '../common/exceptions/domain.exception';
 import { NotAuthorizedException } from '../common/exceptions/not-authorized.exception';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Transaction } from '../transactions/entities/transaction.entity';
+import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
 import { AbnAmroTokenResponse } from './dto/abn-amro-token.dto';
 import {
   AbnAmroTransaction,
@@ -35,6 +36,7 @@ export class AbnAmroService {
     private readonly httpService: HttpService,
     configService: ConfigService,
     private readonly transactionsService: TransactionsService,
+    private readonly bankAccountsService: BankAccountsService,
   ) {
     this.authUrl = configService.get(
       'ABN_AMRO_AUTH_URL',
@@ -224,7 +226,7 @@ export class AbnAmroService {
 
   private mapToEntity(
     abnTransaction: AbnAmroTransaction,
-    userId?: string,
+    bankAccountId: string,
     categoryId?: string,
   ): Partial<Transaction> {
     return {
@@ -233,8 +235,8 @@ export class AbnAmroService {
       date: abnTransaction.bookDate,
       counterpartyName: abnTransaction.counterPartyName ?? null,
       counterpartyAccount: abnTransaction.counterPartyAccountNumber ?? null,
-      userId: userId ?? null,
       categoryId: categoryId ?? null,
+      bankAccountId,
       tags: [],
     };
   }
@@ -251,10 +253,26 @@ export class AbnAmroService {
       };
     }
 
+    if (!userId) {
+      return {
+        imported: 0,
+        errors: ['userId query parameter is required'],
+      };
+    }
+
     const errors: string[] = [];
 
     try {
       const accessToken = this.getStoredToken();
+
+      const bankAccount =
+        await this.bankAccountsService.findOrCreateByAccountNumber(
+          accountNumber,
+          userId,
+        );
+      this.logger.log(
+        `Using bank account ${bankAccount.id} for account number ${accountNumber}`,
+      );
 
       this.logger.log(`Fetching transactions for account ${accountNumber}...`);
       const abnTransactions = await this.fetchTransactions(
@@ -264,7 +282,7 @@ export class AbnAmroService {
       this.logger.log(`Received ${abnTransactions.length} transactions`);
 
       const entities = abnTransactions.map((t) =>
-        this.mapToEntity(t, userId, categoryId),
+        this.mapToEntity(t, bankAccount.id, categoryId),
       );
       await this.transactionsService.bulkCreate(entities);
 

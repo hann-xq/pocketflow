@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { useContainer } from 'class-validator';
 import { App } from 'supertest/types';
 import { configureApp } from '../src/server';
+import { ValidatorsModule } from '../src/validators/validators.module';
 
 export async function createTestApp(
   imports?: ModuleMetadata['imports'],
@@ -17,6 +18,7 @@ export async function createTestApp(
       synchronize: true,
       entities: [__dirname + '/../src/**/*.entity{.ts,.js}'],
     }),
+    ValidatorsModule,
   ];
 
   const module = await Test.createTestingModule({

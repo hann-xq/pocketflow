@@ -1,6 +1,6 @@
 opencollection: 1.0.0
 info:
-  name: "Spring Boot Prototype"
+  name: "PocketFlow"
   type: workspace
 
 collections:
@@ -10,3 +10,5 @@ collections:
 specs:
 
 docs: ''
+
+activeEnvironmentUid: 1n0ezp300000000000000

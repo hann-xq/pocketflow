@@ -1,4 +1,0 @@
-name: Local
-variables:
-  - name: URL
-    value: https://localhost

@@ -33,15 +33,15 @@ export class TransactionsService {
 
   findAllForUser(userId: string): Promise<Transaction[]> {
     return this.transactionsRepository.find({
-      where: { userId },
-      relations: ['category', 'tags', 'user'],
+      where: { bankAccount: { userId } },
+      relations: ['category', 'tags', 'bankAccount'],
     });
   }
 
   findOne(id: string): Promise<Transaction> {
     return this.transactionsRepository.findOneOrFail({
       where: { id },
-      relations: ['category', 'tags', 'user'],
+      relations: ['category', 'tags', 'bankAccount'],
     });
   }
 

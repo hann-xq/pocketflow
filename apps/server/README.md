@@ -3,6 +3,19 @@
 NestJS REST API with PostgreSQL for managing users, transactions, categories, and tags. Includes integration with the
 ABN AMRO sandbox API to import transactions.
 
+## Features
+
+- Manage users, bank accounts, transactions, categories, and tags
+- Import transactions from ABN AMRO via OAuth2 + PSD2 API
+- URI-versioned REST API (`/api/v1/`)
+
+## Tech Stack
+
+- **Framework:** NestJS (TypeScript)
+- **Database:** PostgreSQL (production), SQLite in-memory (tests)
+- **ORM:** TypeORM
+- **Testing:** Jest + Supertest (E2E)
+
 ## Prerequisites
 
 - Node.js 18 (or higher)
@@ -115,14 +128,55 @@ All routes are prefixed with `/api/v1`, except the ABN AMRO routes which are ser
 
 ### Users
 
-| Method   | Path                             | Description                  |
-|----------|----------------------------------|------------------------------|
-| `POST`   | `/api/v1/users`                  | Create a user                |
-| `GET`    | `/api/v1/users`                  | List all users               |
-| `GET`    | `/api/v1/users/:id`              | Get a user by ID             |
-| `PATCH`  | `/api/v1/users/:id`              | Update a user                |
-| `DELETE` | `/api/v1/users/:id`              | Delete a user                |
-| `GET`    | `/api/v1/users/:id/transactions` | List transactions for a user |
+| Method   | Path                              | Description                   |
+|----------|-----------------------------------|-------------------------------|
+| `POST`   | `/api/v1/users`                   | Create a user                 |
+| `GET`    | `/api/v1/users`                   | List all users                |
+| `GET`    | `/api/v1/users/:id`               | Get a user by ID              |
+| `PATCH`  | `/api/v1/users/:id`               | Update a user                 |
+| `DELETE` | `/api/v1/users/:id`               | Delete a user                 |
+| `GET`    | `/api/v1/users/:id/bank-accounts` | List bank accounts for a user |
+| `GET`    | `/api/v1/users/:id/transactions`  | List transactions for a user  |
+
+**Create / Update body:**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+### Bank Accounts
+
+| Method   | Path                                     | Description                          |
+|----------|------------------------------------------|--------------------------------------|
+| `POST`   | `/api/v1/bank-accounts`                  | Create a bank account                |
+| `GET`    | `/api/v1/bank-accounts/:id`              | Get a bank account by ID             |
+| `PATCH`  | `/api/v1/bank-accounts/:id`              | Update a bank account                |
+| `DELETE` | `/api/v1/bank-accounts/:id`              | Delete a bank account                |
+| `GET`    | `/api/v1/bank-accounts/:id/transactions` | List transactions for a bank account |
+
+**Create body:**
+
+```json
+{
+  "accountNumber": "NL01ABNA0417164300",
+  "accountName": "Checking",
+  "userId": "<uuid>"
+}
+```
+
+**Update body** (only `accountName` can be changed; `accountNumber` and `userId` are immutable):
+
+```json
+{
+  "accountName": "Main Account"
+}
+```
+
+Deleting a bank account cascades and removes all its transactions. Deleting a user cascades and removes all their bank
+accounts.
 
 ### Categories
 
@@ -134,6 +188,17 @@ All routes are prefixed with `/api/v1`, except the ABN AMRO routes which are ser
 | `PATCH`  | `/api/v1/categories/:id` | Update a category    |
 | `DELETE` | `/api/v1/categories/:id` | Delete a category    |
 
+**Create / Update body:**
+
+```json
+{
+  "name": "Groceries",
+  "description": "Food and household supplies"
+}
+```
+
+- `description` is optional
+
 ### Tags
 
 | Method   | Path               | Description     |
@@ -144,15 +209,42 @@ All routes are prefixed with `/api/v1`, except the ABN AMRO routes which are ser
 | `PATCH`  | `/api/v1/tags/:id` | Update a tag    |
 | `DELETE` | `/api/v1/tags/:id` | Delete a tag    |
 
+**Create / Update body:**
+
+```json
+{
+  "name": "essential"
+}
+```
+
 ### Transactions
 
-| Method   | Path                                 | Description                  |
-|----------|--------------------------------------|------------------------------|
-| `POST`   | `/api/v1/transactions`               | Create a transaction         |
-| `GET`    | `/api/v1/users/:userId/transactions` | List transactions for a user |
-| `GET`    | `/api/v1/transactions/:id`           | Get a transaction by ID      |
-| `PATCH`  | `/api/v1/transactions/:id`           | Update a transaction         |
-| `DELETE` | `/api/v1/transactions/:id`           | Delete a transaction         |
+| Method   | Path                       | Description             |
+|----------|----------------------------|-------------------------|
+| `POST`   | `/api/v1/transactions`     | Create a transaction    |
+| `GET`    | `/api/v1/transactions/:id` | Get a transaction by ID |
+| `PATCH`  | `/api/v1/transactions/:id` | Update a transaction    |
+| `DELETE` | `/api/v1/transactions/:id` | Delete a transaction    |
+
+**Create body:**
+
+```json
+{
+  "amount": -42.50,
+  "date": "2024-01-15",
+  "bankAccountId": "<uuid>",
+  "description": "Supermarket",
+  "counterpartyName": "Albert Heijn",
+  "counterpartyAccount": "NL99ABNA0000000001",
+  "categoryId": "<uuid>",
+  "tagIds": [
+    "<uuid>"
+  ]
+}
+```
+
+- `amount`, `date`, and `bankAccountId` are required; all other fields are optional
+- Negative `amount` = debit, positive = credit
 
 ### ABN AMRO
 
@@ -165,7 +257,7 @@ All routes are prefixed with `/api/v1`, except the ABN AMRO routes which are ser
 Query parameters for `/api/v1/abn-amro/sync`:
 
 - `accountNumber` (required): IBAN of the account to fetch transactions from
-- `userId` (optional): Assign imported transactions to this user ID
+- `userId` (required): ID of the user who owns the account
 - `categoryId` (optional): Assign imported transactions to this category ID
 
 ## Example requests

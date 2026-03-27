@@ -1,0 +1,10 @@
+name: Local
+variables:
+  - name: URL
+    value: https://localhost
+  - name: API
+    value: "{{URL}}/api/v1"
+  - secret: true
+    name: test_user
+  - secret: true
+    name: test_category

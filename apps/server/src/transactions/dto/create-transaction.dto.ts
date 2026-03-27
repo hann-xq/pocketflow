@@ -31,11 +31,10 @@ export class CreateTransactionDto {
 
   @IsUUID()
   @IsOptional()
-  userId?: string;
+  categoryId?: string;
 
   @IsUUID()
-  @IsOptional()
-  categoryId?: string;
+  bankAccountId: string;
 
   @IsArray()
   @IsUUID('all', { each: true })
