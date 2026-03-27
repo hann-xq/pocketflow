@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -20,6 +21,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly transactionsService: TransactionsService,
+    private readonly bankAccountsService: BankAccountsService,
   ) {}
 
   @Post()
@@ -44,6 +46,11 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
   ) {
     return this.usersService.update(id, updateUserDto);
+  }
+
+  @Get(':id/bank-accounts')
+  findBankAccounts(@Param('id', ParseUUIDPipe) id: string) {
+    return this.bankAccountsService.findAllForUser(id);
   }
 
   @Get(':id/transactions')

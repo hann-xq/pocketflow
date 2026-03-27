@@ -1,5 +1,5 @@
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { DataSource, Repository } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
@@ -8,6 +8,7 @@ import { Transaction } from '../src/transactions/entities/transaction.entity';
 import { User } from '../src/users/entities/user.entity';
 import { Category } from '../src/categories/entities/category.entity';
 import { Tag } from '../src/tags/entities/tag.entity';
+import { BankAccount } from '../src/bank-accounts/entities/bank-account.entity';
 import { createTestApp } from './test-utils';
 import { AbnAmroModule } from '../src/abn-amro/abn-amro.module';
 import { AbnAmroService } from '../src/abn-amro/abn-amro.service';
@@ -22,6 +23,7 @@ describe('AbnAmro (e2e)', () => {
   let userRepo: Repository<User>;
   let categoryRepo: Repository<Category>;
   let tagRepo: Repository<Tag>;
+  let bankAccountRepo: Repository<BankAccount>;
   let httpService: HttpService;
   let abnAmroService: AbnAmroService;
 
@@ -34,6 +36,7 @@ describe('AbnAmro (e2e)', () => {
     userRepo = dataSource.getRepository(User);
     categoryRepo = dataSource.getRepository(Category);
     tagRepo = dataSource.getRepository(Tag);
+    bankAccountRepo = dataSource.getRepository(BankAccount);
 
     httpService = app.get(HttpService);
     abnAmroService = app.get(AbnAmroService);
@@ -51,6 +54,7 @@ describe('AbnAmro (e2e)', () => {
 
     const transactions = await transactionRepo.find({ relations: ['tags'] });
     await transactionRepo.remove(transactions);
+    await bankAccountRepo.clear();
     await userRepo.clear();
     await categoryRepo.clear();
     await tagRepo.clear();
@@ -70,7 +74,24 @@ describe('AbnAmro (e2e)', () => {
       });
     });
 
+    it('returns an error when userId query parameter is missing', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        imported: 0,
+        errors: expect.arrayContaining([
+          expect.stringContaining('userId query parameter is required'),
+        ]),
+      });
+    });
+
     it('imports transactions and returns the count', async () => {
+      const userRes = await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .send({ email: 'import@example.com', password: 'password123' });
+
       jest.spyOn(httpService, 'get').mockReturnValueOnce(
         of({
           data: {
@@ -109,7 +130,7 @@ describe('AbnAmro (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userRes.body.id}`)
         .expect(200);
 
       expect(res.body).toMatchObject({ imported: 2, errors: [] });
@@ -162,13 +183,17 @@ describe('AbnAmro (e2e)', () => {
 
       const saved = await transactionRepo.findOne({
         where: {},
-        relations: ['user', 'category'],
+        relations: ['bankAccount', 'category'],
       });
-      expect(saved?.userId).toBe(userRes.body.id);
+      expect(saved?.bankAccount?.userId).toBe(userRes.body.id);
       expect(saved?.categoryId).toBe(categoryRes.body.id);
     });
 
     it('paginates through multiple pages of transactions', async () => {
+      const userRes = await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .send({ email: 'paginate@example.com', password: 'password123' });
+
       const mockGet = jest.spyOn(httpService, 'get');
 
       mockGet.mockReturnValueOnce(
@@ -224,7 +249,7 @@ describe('AbnAmro (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userRes.body.id}`)
         .expect(200);
 
       expect(res.body).toMatchObject({ imported: 2, errors: [] });
