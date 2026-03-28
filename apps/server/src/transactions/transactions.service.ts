@@ -45,23 +45,45 @@ export class TransactionsService {
     });
   }
 
-  async update(
-    id: string,
-    updateTransactionDto: UpdateTransactionDto,
-  ): Promise<Transaction> {
-    const transaction = await this.findOne(id);
-    const { tagIds, ...transactionData } = updateTransactionDto;
+  async update(id: string, data: UpdateTransactionDto): Promise<Transaction> {
+    const transaction = await this.transactionsRepository.findOneByOrFail({
+      id,
+    });
 
-    Object.assign(transaction, transactionData);
+    if (data.description !== undefined) {
+      transaction.description = data.description;
+    }
 
-    if (tagIds !== undefined) {
+    if (data.amount !== undefined) {
+      transaction.amount = data.amount;
+    }
+
+    if (data.date !== undefined) {
+      transaction.date = data.date;
+    }
+
+    if (data.counterpartyName !== undefined) {
+      transaction.counterpartyName = data.counterpartyName;
+    }
+
+    if (data.counterpartyAccount !== undefined) {
+      transaction.counterpartyAccount = data.counterpartyAccount;
+    }
+
+    if (data.categoryId !== undefined) {
+      transaction.categoryId = data.categoryId;
+    }
+
+    if (data.tagIds !== undefined) {
+      const tags = data.tagIds;
+
       transaction.tags =
-        tagIds.length > 0
-          ? await this.tagsRepository.findBy({ id: In(tagIds) })
+        tags.length > 0
+          ? await this.tagsRepository.findBy({ id: In(data.tagIds) })
           : [];
     }
 
-    return this.transactionsRepository.save(transaction);
+    return this.transactionsRepository.save(transaction, { reload: true });
   }
 
   async remove(id: string): Promise<void> {

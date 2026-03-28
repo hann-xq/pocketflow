@@ -124,7 +124,7 @@ describe('AbnAmro (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}`,
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}&categoryId=${categoryId}`,
         )
         .expect(200);
 
@@ -231,7 +231,7 @@ describe('AbnAmro (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}`,
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}&categoryId=${categoryId}`,
         )
         .expect(200);
 

@@ -227,7 +227,7 @@ export class AbnAmroService {
   private mapToEntity(
     abnTransaction: AbnAmroTransaction,
     bankAccountId: string,
-    categoryId?: string,
+    categoryId: string,
   ): Partial<Transaction> {
     return {
       description: abnTransaction.description ?? null,
@@ -235,7 +235,7 @@ export class AbnAmroService {
       date: abnTransaction.bookDate,
       counterpartyName: abnTransaction.counterPartyName ?? null,
       counterpartyAccount: abnTransaction.counterPartyAccountNumber ?? null,
-      categoryId: categoryId ?? null,
+      categoryId,
       bankAccountId,
       tags: [],
     };
@@ -257,6 +257,13 @@ export class AbnAmroService {
       return {
         imported: 0,
         errors: ['userId query parameter is required'],
+      };
+    }
+
+    if (!categoryId) {
+      return {
+        imported: 0,
+        errors: ['categoryId query parameter is required'],
       };
     }
 
