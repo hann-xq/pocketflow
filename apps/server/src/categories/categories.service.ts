@@ -43,7 +43,14 @@ export class CategoriesService implements ISeeder {
     updateCategoryDto: UpdateCategoryDto,
   ): Promise<Category> {
     const category = await this.findOne(id);
-    Object.assign(category, updateCategoryDto);
+
+    if (updateCategoryDto.name !== undefined) {
+      category.name = updateCategoryDto.name;
+    }
+    if (updateCategoryDto.description !== undefined) {
+      category.description = updateCategoryDto.description;
+    }
+
     return this.categoriesRepository.save(category);
   }
 

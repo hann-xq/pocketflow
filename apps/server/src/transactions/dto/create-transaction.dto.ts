@@ -30,8 +30,8 @@ export class CreateTransactionDto {
   counterpartyAccount?: string;
 
   @IsUUID()
-  @IsOptional()
-  categoryId?: string;
+  @IsNotEmpty()
+  categoryId: string;
 
   @IsUUID()
   bankAccountId: string;

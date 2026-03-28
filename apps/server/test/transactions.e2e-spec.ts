@@ -65,7 +65,7 @@ describe('Transactions (e2e)', () => {
     it('creates a minimal transaction and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -42.5, date: '2024-01-15', bankAccountId })
+        .send({ amount: -42.5, date: '2024-01-15', bankAccountId, categoryId })
         .expect(201);
 
       expect(Number(res.body.amount)).toBe(-42.5);
@@ -119,7 +119,7 @@ describe('Transactions (e2e)', () => {
     it('creates a transaction linked to a bank account', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -42.5, date: '2024-01-15', bankAccountId })
+        .send({ amount: -42.5, date: '2024-01-15', bankAccountId, categoryId })
         .expect(201);
 
       expect(res.body.bankAccountId).toBe(bankAccountId);
@@ -139,6 +139,7 @@ describe('Transactions (e2e)', () => {
           amount: -10,
           date: '2024-01-15',
           bankAccountId,
+          categoryId,
           extra: 'field',
         })
         .expect(400);
@@ -190,11 +191,12 @@ describe('Transactions (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -10, date: '2024-01-01', bankAccountId });
+        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
       await request(app.getHttpServer()).post('/api/v1/transactions').send({
         amount: -20,
         date: '2024-01-02',
         bankAccountId: otherAccount.body.id,
+        categoryId,
       });
 
       const res = await request(app.getHttpServer())
@@ -242,7 +244,7 @@ describe('Transactions (e2e)', () => {
     it('returns the bankAccount relation when set', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -10, date: '2024-01-01', bankAccountId });
+        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/transactions/${created.body.id}`)
@@ -262,7 +264,7 @@ describe('Transactions (e2e)', () => {
     it('updates the transaction amount and description', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -10, date: '2024-01-01', bankAccountId });
+        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/transactions/${created.body.id}`)
@@ -280,6 +282,7 @@ describe('Transactions (e2e)', () => {
           amount: -10,
           date: '2024-01-01',
           bankAccountId,
+          categoryId,
           tagIds: [tagId],
         });
 
@@ -295,6 +298,24 @@ describe('Transactions (e2e)', () => {
       expect(fetched.body.tags).toHaveLength(0);
     });
 
+    it('updates the category relation when categoryId changes', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/transactions')
+        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
+
+      const newCategory = await request(app.getHttpServer())
+        .post('/api/v1/categories')
+        .send({ name: 'Travel' });
+      const newCategoryId = newCategory.body.id;
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/transactions/${created.body.id}`)
+        .send({ categoryId: newCategoryId })
+        .expect(200);
+
+      expect(res.body.categoryId).toBe(newCategoryId);
+    });
+
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .patch('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
@@ -307,7 +328,7 @@ describe('Transactions (e2e)', () => {
     it('deletes the transaction and returns 204', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -10, date: '2024-01-01', bankAccountId });
+        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       await request(app.getHttpServer())
         .delete(`/api/v1/transactions/${created.body.id}`)

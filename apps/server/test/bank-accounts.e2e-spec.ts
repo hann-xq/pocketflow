@@ -8,6 +8,8 @@ import { BankAccountsService } from '../src/bank-accounts/bank-accounts.service'
 import { UsersModule } from '../src/users/users.module';
 import { UsersService } from '../src/users/users.service';
 import { TransactionsModule } from '../src/transactions/transactions.module';
+import { CategoriesModule } from '../src/categories/categories.module';
+import { CategoriesService } from '../src/categories/categories.service';
 import { SeederService } from '../src/seeds/seeder.service';
 import { SEED_USER, SEED_BANK_ACCOUNT } from '../src/seeds/seed-data';
 
@@ -19,12 +21,14 @@ describe('BankAccounts (e2e)', () => {
   let dataSource: DataSource;
   let userId: string;
   let bankAccountId: string; // seeded bank account, restored before each test
+  let categoryId: string;
 
   beforeAll(async () => {
     app = await createTestApp([
       UsersModule,
       BankAccountsModule,
       TransactionsModule,
+      CategoriesModule,
     ]);
     dataSource = app.get(DataSource);
   });
@@ -46,6 +50,9 @@ describe('BankAccounts (e2e)', () => {
       .get(BankAccountsService)
       .findAllForUser(userId);
     bankAccountId = bankAccounts[0].id;
+
+    const categories = await app.get(CategoriesService).findAll();
+    categoryId = categories[0].id;
   });
 
   describe('POST /api/v1/bank-accounts', () => {
@@ -297,7 +304,7 @@ describe('BankAccounts (e2e)', () => {
     it('deletes transactions when the bank account is deleted', async () => {
       const tx = await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -10, date: '2024-01-01', bankAccountId });
+        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       await request(app.getHttpServer())
         .delete(`/api/v1/bank-accounts/${bankAccountId}`)

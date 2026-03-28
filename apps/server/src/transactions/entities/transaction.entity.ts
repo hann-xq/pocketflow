@@ -32,15 +32,15 @@ export class Transaction {
   counterpartyAccount: string | null;
 
   @ManyToOne(() => Category, (category) => category.transactions, {
-    nullable: true,
+    nullable: false,
     onUpdate: 'CASCADE',
-    onDelete: 'SET NULL',
+    onDelete: 'RESTRICT',
   })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Category;
 
-  @Column({ name: 'category_id', nullable: true })
-  categoryId: string | null;
+  @Column({ name: 'category_id' })
+  categoryId: string;
 
   @ManyToOne(() => BankAccount, (bankAccount) => bankAccount.transactions, {
     nullable: false,
