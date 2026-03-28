@@ -1,26 +1,23 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { DataSource, Repository } from 'typeorm';
-import { Transaction } from '../src/transactions/entities/transaction.entity';
-import { User } from '../src/users/entities/user.entity';
-import { Category } from '../src/categories/entities/category.entity';
-import { Tag } from '../src/tags/entities/tag.entity';
-import { BankAccount } from '../src/bank-accounts/entities/bank-account.entity';
+import { DataSource } from 'typeorm';
 import { createTestApp } from './test-utils';
 import { TransactionsModule } from '../src/transactions/transactions.module';
 import { UsersModule } from '../src/users/users.module';
 import { CategoriesModule } from '../src/categories/categories.module';
 import { TagsModule } from '../src/tags/tags.module';
 import { BankAccountsModule } from '../src/bank-accounts/bank-accounts.module';
+import { SeederService } from '../src/seeds/seeder.service';
+import { UsersService } from '../src/users/users.service';
+import { CategoriesService } from '../src/categories/categories.service';
+import { TagsService } from '../src/tags/tags.service';
+import { BankAccountsService } from '../src/bank-accounts/bank-accounts.service';
+import { SEED_USER } from '../src/seeds/seed-data';
 
 describe('Transactions (e2e)', () => {
   let app: INestApplication<App>;
-  let transactionRepo: Repository<Transaction>;
-  let userRepo: Repository<User>;
-  let categoryRepo: Repository<Category>;
-  let tagRepo: Repository<Tag>;
-  let bankAccountRepo: Repository<BankAccount>;
+  let dataSource: DataSource;
 
   // IDs for shared test fixtures
   let userId: string;
@@ -36,13 +33,7 @@ describe('Transactions (e2e)', () => {
       TagsModule,
       BankAccountsModule,
     ]);
-
-    const dataSource = app.get(DataSource);
-    transactionRepo = dataSource.getRepository(Transaction);
-    userRepo = dataSource.getRepository(User);
-    categoryRepo = dataSource.getRepository(Category);
-    tagRepo = dataSource.getRepository(Tag);
-    bankAccountRepo = dataSource.getRepository(BankAccount);
+    dataSource = app.get(DataSource);
   });
 
   afterAll(async () => {
@@ -50,33 +41,24 @@ describe('Transactions (e2e)', () => {
   });
 
   beforeEach(async () => {
-    const transactions = await transactionRepo.find({ relations: ['tags'] });
-    await transactionRepo.remove(transactions);
-    await bankAccountRepo.clear();
-    await userRepo.clear();
-    await categoryRepo.clear();
-    await tagRepo.clear();
+    // SQLite has no TRUNCATE; drop + recreate is the simplest reset
+    await dataSource.synchronize(true);
+    // Restore seeded base data and resolve the IDs for this test
+    await app.get(SeederService).run();
 
-    // Seed shared fixtures used by multiple tests
-    const user = await request(app.getHttpServer())
-      .post('/api/v1/users')
-      .send({ email: 'tx@example.com', password: 'password123' });
-    userId = user.body.id;
+    const users = await app.get(UsersService).findAll();
+    userId = users.find((u) => u.email === SEED_USER.email)!.id;
 
-    const category = await request(app.getHttpServer())
-      .post('/api/v1/categories')
-      .send({ name: 'Shopping' });
-    categoryId = category.body.id;
+    const categories = await app.get(CategoriesService).findAll();
+    categoryId = categories[0].id;
 
-    const tag = await request(app.getHttpServer())
-      .post('/api/v1/tags')
-      .send({ name: 'online' });
-    tagId = tag.body.id;
+    const tags = await app.get(TagsService).findAll();
+    tagId = tags[0].id;
 
-    const bankAccount = await request(app.getHttpServer())
-      .post('/api/v1/bank-accounts')
-      .send({ accountNumber: 'NL12ABNA9999876523', accountName: 'Checking', userId });
-    bankAccountId = bankAccount.body.id;
+    const bankAccounts = await app
+      .get(BankAccountsService)
+      .findAllForUser(userId);
+    bankAccountId = bankAccounts[0].id;
   });
 
   describe('POST /api/v1/transactions', () => {
@@ -153,7 +135,12 @@ describe('Transactions (e2e)', () => {
     it('returns 400 for unknown fields', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -10, date: '2024-01-15', bankAccountId, extra: 'field' })
+        .send({
+          amount: -10,
+          date: '2024-01-15',
+          bankAccountId,
+          extra: 'field',
+        })
         .expect(400);
     });
   });
@@ -184,25 +171,31 @@ describe('Transactions (e2e)', () => {
       expect(res.body).toHaveLength(1);
       const tx = res.body[0];
       expect(tx.bankAccount).toMatchObject({ id: bankAccountId });
-      expect(tx.category).toMatchObject({ name: 'Shopping' });
+      expect(tx.category).toMatchObject({ id: categoryId });
       expect(tx.tags).toHaveLength(1);
-      expect(tx.tags[0]).toMatchObject({ name: 'online' });
+      expect(tx.tags[0]).toMatchObject({ id: tagId });
     });
 
     it('only returns transactions belonging to the specified user', async () => {
       const otherUser = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'other@example.com', password: 'password123' });
+        .send({ email: 'other@example.com', password: SEED_USER.password });
       const otherAccount = await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
-        .send({ accountNumber: 'NL01ABNA0417164399', accountName: 'Other', userId: otherUser.body.id });
+        .send({
+          accountNumber: 'NL01ABNA0417164399',
+          accountName: 'Other',
+          userId: otherUser.body.id,
+        });
 
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
         .send({ amount: -10, date: '2024-01-01', bankAccountId });
-      await request(app.getHttpServer())
-        .post('/api/v1/transactions')
-        .send({ amount: -20, date: '2024-01-02', bankAccountId: otherAccount.body.id });
+      await request(app.getHttpServer()).post('/api/v1/transactions').send({
+        amount: -20,
+        date: '2024-01-02',
+        bankAccountId: otherAccount.body.id,
+      });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}/transactions`)
@@ -236,7 +229,7 @@ describe('Transactions (e2e)', () => {
         .expect(200);
 
       expect(Number(res.body.amount)).toBe(-55);
-      expect(res.body.category).toMatchObject({ name: 'Shopping' });
+      expect(res.body.category).toMatchObject({ id: categoryId });
       expect(res.body.tags).toHaveLength(1);
     });
 
@@ -283,7 +276,12 @@ describe('Transactions (e2e)', () => {
     it('removes all tags from a transaction', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
-        .send({ amount: -10, date: '2024-01-01', bankAccountId, tagIds: [tagId] });
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          bankAccountId,
+          tagIds: [tagId],
+        });
 
       await request(app.getHttpServer())
         .patch(`/api/v1/transactions/${created.body.id}`)

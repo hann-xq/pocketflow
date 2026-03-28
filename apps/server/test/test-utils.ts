@@ -6,6 +6,7 @@ import { useContainer } from 'class-validator';
 import { App } from 'supertest/types';
 import { configureApp } from '../src/server';
 import { ValidatorsModule } from '../src/validators/validators.module';
+import { SeederModule } from '../src/seeds/seeder.module';
 
 export async function createTestApp(
   imports?: ModuleMetadata['imports'],
@@ -18,6 +19,7 @@ export async function createTestApp(
       synchronize: true,
       entities: [__dirname + '/../src/**/*.entity{.ts,.js}'],
     }),
+    SeederModule,
     ValidatorsModule,
   ];
 

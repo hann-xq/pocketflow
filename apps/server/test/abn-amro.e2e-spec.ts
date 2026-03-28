@@ -1,43 +1,36 @@
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { of } from 'rxjs';
-import { Transaction } from '../src/transactions/entities/transaction.entity';
-import { User } from '../src/users/entities/user.entity';
-import { Category } from '../src/categories/entities/category.entity';
-import { Tag } from '../src/tags/entities/tag.entity';
-import { BankAccount } from '../src/bank-accounts/entities/bank-account.entity';
 import { createTestApp } from './test-utils';
 import { AbnAmroModule } from '../src/abn-amro/abn-amro.module';
 import { AbnAmroService } from '../src/abn-amro/abn-amro.service';
 import { UsersModule } from '../src/users/users.module';
 import { CategoriesModule } from '../src/categories/categories.module';
+import { SeederService } from '../src/seeds/seeder.service';
+import { UsersService } from '../src/users/users.service';
+import { CategoriesService } from '../src/categories/categories.service';
+import { TransactionsService } from '../src/transactions/transactions.service';
+import { SEED_USER } from '../src/seeds/seed-data';
 
 const ACCOUNT_NUMBER = 'NL12ABNA0123456789';
 
 describe('AbnAmro (e2e)', () => {
   let app: INestApplication<App>;
-  let transactionRepo: Repository<Transaction>;
-  let userRepo: Repository<User>;
-  let categoryRepo: Repository<Category>;
-  let tagRepo: Repository<Tag>;
-  let bankAccountRepo: Repository<BankAccount>;
+  let dataSource: DataSource;
   let httpService: HttpService;
   let abnAmroService: AbnAmroService;
+
+  // IDs for shared test fixtures
+  let userId: string;
+  let categoryId: string;
 
   beforeAll(async () => {
     app = await createTestApp([AbnAmroModule, UsersModule, CategoriesModule]);
 
-    const dataSource = app.get(DataSource);
-
-    transactionRepo = dataSource.getRepository(Transaction);
-    userRepo = dataSource.getRepository(User);
-    categoryRepo = dataSource.getRepository(Category);
-    tagRepo = dataSource.getRepository(Tag);
-    bankAccountRepo = dataSource.getRepository(BankAccount);
-
+    dataSource = app.get(DataSource);
     httpService = app.get(HttpService);
     abnAmroService = app.get(AbnAmroService);
   });
@@ -47,17 +40,21 @@ describe('AbnAmro (e2e)', () => {
   });
 
   beforeEach(async () => {
+    // SQLite has no TRUNCATE; drop + recreate is the simplest reset
+    await dataSource.synchronize(true);
+    // Restore seeded base data and resolve the IDs for this test
+    await app.get(SeederService).run();
+
     jest.restoreAllMocks();
     jest
       .spyOn(abnAmroService as any, 'getStoredToken')
       .mockReturnValue('mock-token');
 
-    const transactions = await transactionRepo.find({ relations: ['tags'] });
-    await transactionRepo.remove(transactions);
-    await bankAccountRepo.clear();
-    await userRepo.clear();
-    await categoryRepo.clear();
-    await tagRepo.clear();
+    const users = await app.get(UsersService).findAll();
+    userId = users.find((u) => u.email === SEED_USER.email)!.id;
+
+    const categories = await app.get(CategoriesService).findAll();
+    categoryId = categories[0].id;
   });
 
   describe('POST /api/v1/abn-amro/sync', () => {
@@ -88,10 +85,6 @@ describe('AbnAmro (e2e)', () => {
     });
 
     it('imports transactions and returns the count', async () => {
-      const userRes = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'import@example.com', password: 'password123' });
-
       jest.spyOn(httpService, 'get').mockReturnValueOnce(
         of({
           data: {
@@ -130,23 +123,18 @@ describe('AbnAmro (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userRes.body.id}`)
+        .post(
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}`,
+        )
         .expect(200);
 
       expect(res.body).toMatchObject({ imported: 2, errors: [] });
 
-      const saved = await transactionRepo.find();
+      const saved = await app.get(TransactionsService).findAllForUser(userId);
       expect(saved).toHaveLength(2);
     });
 
     it('assigns userId and categoryId when provided as query params', async () => {
-      const userRes = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'sync@example.com', password: 'password123' });
-      const categoryRes = await request(app.getHttpServer())
-        .post('/api/v1/categories')
-        .send({ name: 'Imported' });
-
       jest.spyOn(httpService, 'get').mockReturnValueOnce(
         of({
           data: {
@@ -175,25 +163,18 @@ describe('AbnAmro (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userRes.body.id}&categoryId=${categoryRes.body.id}`,
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}&categoryId=${categoryId}`,
         )
         .expect(200);
 
       expect(res.body).toMatchObject({ imported: 1, errors: [] });
 
-      const saved = await transactionRepo.findOne({
-        where: {},
-        relations: ['bankAccount', 'category'],
-      });
-      expect(saved?.bankAccount?.userId).toBe(userRes.body.id);
-      expect(saved?.categoryId).toBe(categoryRes.body.id);
+      const saved = await app.get(TransactionsService).findAllForUser(userId);
+      expect(saved[0].bankAccount.userId).toBe(userId);
+      expect(saved[0].categoryId).toBe(categoryId);
     });
 
     it('paginates through multiple pages of transactions', async () => {
-      const userRes = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'paginate@example.com', password: 'password123' });
-
       const mockGet = jest.spyOn(httpService, 'get');
 
       mockGet.mockReturnValueOnce(
@@ -249,7 +230,9 @@ describe('AbnAmro (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userRes.body.id}`)
+        .post(
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}`,
+        )
         .expect(200);
 
       expect(res.body).toMatchObject({ imported: 2, errors: [] });

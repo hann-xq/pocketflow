@@ -1,29 +1,21 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { DataSource, Repository } from 'typeorm';
-import { Transaction } from '../src/transactions/entities/transaction.entity';
-import { User } from '../src/users/entities/user.entity';
-import { Category } from '../src/categories/entities/category.entity';
-import { Tag } from '../src/tags/entities/tag.entity';
+import { DataSource } from 'typeorm';
 import { createTestApp } from './test-utils';
 import { CategoriesModule } from '../src/categories/categories.module';
+import { CategoriesService } from '../src/categories/categories.service';
+import { SeederService } from '../src/seeds/seeder.service';
+import { SEED_CATEGORIES } from '../src/seeds/seed-data';
 
 describe('Categories (e2e)', () => {
   let app: INestApplication<App>;
-  let transactionRepo: Repository<Transaction>;
-  let userRepo: Repository<User>;
-  let categoryRepo: Repository<Category>;
-  let tagRepo: Repository<Tag>;
+  let dataSource: DataSource;
+  let categoryId: string;
 
   beforeAll(async () => {
     app = await createTestApp([CategoriesModule]);
-
-    const dataSource = app.get(DataSource);
-    transactionRepo = dataSource.getRepository(Transaction);
-    userRepo = dataSource.getRepository(User);
-    categoryRepo = dataSource.getRepository(Category);
-    tagRepo = dataSource.getRepository(Tag);
+    dataSource = app.get(DataSource);
   });
 
   afterAll(async () => {
@@ -31,23 +23,25 @@ describe('Categories (e2e)', () => {
   });
 
   beforeEach(async () => {
-    const transactions = await transactionRepo.find({ relations: ['tags'] });
-    await transactionRepo.remove(transactions);
-    await userRepo.clear();
-    await categoryRepo.clear();
-    await tagRepo.clear();
+    // SQLite has no TRUNCATE; drop + recreate is the simplest reset
+    await dataSource.synchronize(true);
+    // Restore seeded base data and resolve the IDs for this test
+    await app.get(SeederService).run();
+
+    const categories = await app.get(CategoriesService).findAll();
+    categoryId = categories.find((c) => c.name === SEED_CATEGORIES[0].name)!.id;
   });
 
   describe('POST /api/v1/categories', () => {
     it('creates a category and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/categories')
-        .send({ name: 'Groceries', description: 'Food and drink' })
+        .send({ name: 'Custom Category', description: 'A custom description' })
         .expect(201);
 
       expect(res.body).toMatchObject({
-        name: 'Groceries',
-        description: 'Food and drink',
+        name: 'Custom Category',
+        description: 'A custom description',
       });
       expect(res.body.id).toBeDefined();
     });
@@ -55,20 +49,16 @@ describe('Categories (e2e)', () => {
     it('creates a category without optional description', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/categories')
-        .send({ name: 'Transport' })
+        .send({ name: 'New Category' })
         .expect(201);
 
-      expect(res.body.name).toBe('Transport');
+      expect(res.body.name).toBe('New Category');
     });
 
     it('returns 409 for duplicate name', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/categories')
-        .send({ name: 'Utilities' });
-
       const res = await request(app.getHttpServer())
         .post('/api/v1/categories')
-        .send({ name: 'Utilities' })
+        .send({ name: SEED_CATEGORIES[0].name })
         .expect(409);
 
       expect(res.body.message).toContain('already exists');
@@ -90,51 +80,33 @@ describe('Categories (e2e)', () => {
   });
 
   describe('GET /api/v1/categories', () => {
-    it('returns an empty array when no categories exist', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/v1/categories')
-        .expect(200);
-      expect(res.body).toEqual([]);
-    });
-
     it('returns all categories', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/categories')
-        .send({ name: 'Food' });
-      await request(app.getHttpServer())
-        .post('/api/v1/categories')
-        .send({ name: 'Travel' });
-
       const res = await request(app.getHttpServer())
         .get('/api/v1/categories')
         .expect(200);
 
-      expect(res.body).toHaveLength(2);
+      expect(res.body).toHaveLength(SEED_CATEGORIES.length);
       expect(res.body.map((c: any) => c.name)).toEqual(
-        expect.arrayContaining(['Food', 'Travel']),
+        expect.arrayContaining(SEED_CATEGORIES.map((c) => c.name)),
       );
     });
   });
 
   describe('GET /api/v1/categories/:id', () => {
     it('returns the category for a valid id', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/categories')
-        .send({ name: 'Entertainment', description: 'Fun stuff' });
-
       const res = await request(app.getHttpServer())
-        .get(`/api/v1/categories/${created.body.id}`)
+        .get(`/api/v1/categories/${categoryId}`)
         .expect(200);
 
       expect(res.body).toMatchObject({
-        name: 'Entertainment',
-        description: 'Fun stuff',
+        name: SEED_CATEGORIES[0].name,
+        description: SEED_CATEGORIES[0].description,
       });
     });
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .get('/api/v1/categories/00000000-0000-0000-0000-000000000000')
+        .get(`/api/v1/categories/${'00000000-0000-0000-0000-000000000000'}`)
         .expect(404);
     });
 
@@ -145,12 +117,8 @@ describe('Categories (e2e)', () => {
 
   describe('PATCH /api/v1/categories/:id', () => {
     it('updates the category name', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/categories')
-        .send({ name: 'OldName' });
-
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/categories/${created.body.id}`)
+        .patch(`/api/v1/categories/${categoryId}`)
         .send({ name: 'NewName' })
         .expect(200);
 
@@ -158,12 +126,8 @@ describe('Categories (e2e)', () => {
     });
 
     it('updates the description', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/categories')
-        .send({ name: 'WithDesc', description: 'Old desc' });
-
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/categories/${created.body.id}`)
+        .patch(`/api/v1/categories/${categoryId}`)
         .send({ description: 'New desc' })
         .expect(200);
 
@@ -172,7 +136,7 @@ describe('Categories (e2e)', () => {
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .patch('/api/v1/categories/00000000-0000-0000-0000-000000000000')
+        .patch(`/api/v1/categories/${'00000000-0000-0000-0000-000000000000'}`)
         .send({ name: 'Ghost' })
         .expect(404);
     });
@@ -180,22 +144,18 @@ describe('Categories (e2e)', () => {
 
   describe('DELETE /api/v1/categories/:id', () => {
     it('deletes the category and returns 204', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/categories')
-        .send({ name: 'ToDelete' });
-
       await request(app.getHttpServer())
-        .delete(`/api/v1/categories/${created.body.id}`)
+        .delete(`/api/v1/categories/${categoryId}`)
         .expect(204);
 
       await request(app.getHttpServer())
-        .get(`/api/v1/categories/${created.body.id}`)
+        .get(`/api/v1/categories/${categoryId}`)
         .expect(404);
     });
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
-        .delete('/api/v1/categories/00000000-0000-0000-0000-000000000000')
+        .delete(`/api/v1/categories/${'00000000-0000-0000-0000-000000000000'}`)
         .expect(404);
     });
   });

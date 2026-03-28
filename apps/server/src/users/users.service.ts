@@ -6,9 +6,11 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { EntityConflictException } from '../common/exceptions/conflict.exception';
+import { ISeeder } from '../seeds/seeder';
+import { SEED_USER } from '../seeds/seed-data';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements ISeeder {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
@@ -70,5 +72,20 @@ export class UsersService {
   async remove(id: string): Promise<void> {
     const user = await this.findOne(id);
     await this.usersRepository.remove(user);
+  }
+
+  seedPriority(): number {
+    return 0;
+  }
+
+  async seed(): Promise<void> {
+    if ((await this.usersRepository.count()) > 0) return;
+
+    await this.usersRepository.save(
+      this.usersRepository.create({
+        email: SEED_USER.email,
+        password: await bcrypt.hash(SEED_USER.password, 10),
+      }),
+    );
   }
 }
