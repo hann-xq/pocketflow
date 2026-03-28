@@ -5,9 +5,11 @@ import { Tag } from './entities/tag.entity';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { EntityConflictException } from '../common/exceptions/conflict.exception';
+import { ISeeder } from '../seeds/seeder';
+import { SEED_TAGS } from '../seeds/seed-data';
 
 @Injectable()
-export class TagsService {
+export class TagsService implements ISeeder {
   constructor(
     @InjectRepository(Tag)
     private readonly tagsRepository: Repository<Tag>,
@@ -49,5 +51,17 @@ export class TagsService {
   async remove(id: string): Promise<void> {
     const tag = await this.findOne(id);
     await this.tagsRepository.remove(tag);
+  }
+
+  seedPriority(): number {
+    return 0;
+  }
+
+  async seed(): Promise<void> {
+    if ((await this.tagsRepository.count()) > 0) return;
+
+    await this.tagsRepository.save(
+      SEED_TAGS.map((t) => this.tagsRepository.create(t)),
+    );
   }
 }

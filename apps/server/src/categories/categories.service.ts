@@ -5,9 +5,11 @@ import { Category } from './entities/category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { EntityConflictException } from '../common/exceptions/conflict.exception';
+import { ISeeder } from '../seeds/seeder';
+import { SEED_CATEGORIES } from '../seeds/seed-data';
 
 @Injectable()
-export class CategoriesService {
+export class CategoriesService implements ISeeder {
   constructor(
     @InjectRepository(Category)
     private readonly categoriesRepository: Repository<Category>,
@@ -48,5 +50,17 @@ export class CategoriesService {
   async remove(id: string): Promise<void> {
     const category = await this.findOne(id);
     await this.categoriesRepository.remove(category);
+  }
+
+  seedPriority(): number {
+    return 0;
+  }
+
+  async seed(): Promise<void> {
+    if ((await this.categoriesRepository.count()) > 0) return;
+
+    await this.categoriesRepository.save(
+      SEED_CATEGORIES.map((c) => this.categoriesRepository.create(c)),
+    );
   }
 }

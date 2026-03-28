@@ -8,6 +8,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { AbnAmroModule } from './abn-amro/abn-amro.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 import { ValidatorsModule } from './validators/validators.module';
+import { SeederModule } from './seeds/seeder.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ValidatorsModule } from './validators/validators.module';
     AbnAmroModule,
     BankAccountsModule,
     ValidatorsModule,
+    SeederModule,
   ],
 })
 export class AppModule {}

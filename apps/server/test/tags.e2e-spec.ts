@@ -1,29 +1,21 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { DataSource, Repository } from 'typeorm';
-import { Transaction } from '../src/transactions/entities/transaction.entity';
-import { User } from '../src/users/entities/user.entity';
-import { Category } from '../src/categories/entities/category.entity';
-import { Tag } from '../src/tags/entities/tag.entity';
+import { DataSource } from 'typeorm';
 import { createTestApp } from './test-utils';
 import { TagsModule } from '../src/tags/tags.module';
+import { TagsService } from '../src/tags/tags.service';
+import { SeederService } from '../src/seeds/seeder.service';
+import { SEED_TAGS } from '../src/seeds/seed-data';
 
 describe('Tags (e2e)', () => {
   let app: INestApplication<App>;
-  let transactionRepo: Repository<Transaction>;
-  let userRepo: Repository<User>;
-  let categoryRepo: Repository<Category>;
-  let tagRepo: Repository<Tag>;
+  let dataSource: DataSource;
+  let tagId: string;
 
   beforeAll(async () => {
     app = await createTestApp([TagsModule]);
-
-    const dataSource = app.get(DataSource);
-    transactionRepo = dataSource.getRepository(Transaction);
-    userRepo = dataSource.getRepository(User);
-    categoryRepo = dataSource.getRepository(Category);
-    tagRepo = dataSource.getRepository(Tag);
+    dataSource = app.get(DataSource);
   });
 
   afterAll(async () => {
@@ -31,39 +23,41 @@ describe('Tags (e2e)', () => {
   });
 
   beforeEach(async () => {
-    const transactions = await transactionRepo.find({ relations: ['tags'] });
-    await transactionRepo.remove(transactions);
-    await userRepo.clear();
-    await categoryRepo.clear();
-    await tagRepo.clear();
+    // SQLite has no TRUNCATE; drop + recreate is the simplest reset
+    await dataSource.synchronize(true);
+    // Restore seeded base data and resolve the IDs for this test
+    await app.get(SeederService).run();
+
+    const tags = await app.get(TagsService).findAll();
+    tagId = tags.find((t) => t.name === SEED_TAGS[0].name)!.id;
   });
 
   describe('POST /api/v1/tags', () => {
     it('creates a tag and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/tags')
-        .send({ name: 'recurring' })
+        .send({ name: 'custom-tag' })
         .expect(201);
 
-      expect(res.body).toMatchObject({ name: 'recurring' });
+      expect(res.body).toMatchObject({ name: 'custom-tag' });
       expect(res.body.id).toBeDefined();
     });
 
     it('returns 409 for duplicate name', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/tags')
-        .send({ name: 'important' });
-
+      // SEED_TAGS[0].name is already seeded — no setup needed
       const res = await request(app.getHttpServer())
         .post('/api/v1/tags')
-        .send({ name: 'important' })
+        .send({ name: SEED_TAGS[0].name })
         .expect(409);
 
       expect(res.body.message).toContain('already exists');
     });
 
     it('returns 400 when name is missing', async () => {
-      await request(app.getHttpServer()).post('/api/v1/tags').send({}).expect(400);
+      await request(app.getHttpServer())
+        .post('/api/v1/tags')
+        .send({})
+        .expect(400);
     });
 
     it('returns 400 when name is empty', async () => {
@@ -76,49 +70,31 @@ describe('Tags (e2e)', () => {
     it('returns 400 for unknown fields', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/tags')
-        .send({ name: 'valid', color: 'blue' })
+        .send({ name: 'new-tag', color: 'blue' })
         .expect(400);
     });
   });
 
   describe('GET /api/v1/tags', () => {
-    it('returns an empty array when no tags exist', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/v1/tags')
-        .expect(200);
-      expect(res.body).toEqual([]);
-    });
-
     it('returns all tags', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/tags')
-        .send({ name: 'work' });
-      await request(app.getHttpServer())
-        .post('/api/v1/tags')
-        .send({ name: 'personal' });
-
       const res = await request(app.getHttpServer())
         .get('/api/v1/tags')
         .expect(200);
 
-      expect(res.body).toHaveLength(2);
+      expect(res.body).toHaveLength(SEED_TAGS.length);
       expect(res.body.map((t: any) => t.name)).toEqual(
-        expect.arrayContaining(['work', 'personal']),
+        expect.arrayContaining(SEED_TAGS.map((t) => t.name)),
       );
     });
   });
 
   describe('GET /api/v1/tags/:id', () => {
     it('returns the tag for a valid id', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/tags')
-        .send({ name: 'subscriptions' });
-
       const res = await request(app.getHttpServer())
-        .get(`/api/v1/tags/${created.body.id}`)
+        .get(`/api/v1/tags/${tagId}`)
         .expect(200);
 
-      expect(res.body.name).toBe('subscriptions');
+      expect(res.body.name).toBe(SEED_TAGS[0].name);
     });
 
     it('returns 404 for a non-existent id', async () => {
@@ -134,16 +110,12 @@ describe('Tags (e2e)', () => {
 
   describe('PATCH /api/v1/tags/:id', () => {
     it('updates the tag name', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/tags')
-        .send({ name: 'old-tag' });
-
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/tags/${created.body.id}`)
-        .send({ name: 'new-tag' })
+        .patch(`/api/v1/tags/${tagId}`)
+        .send({ name: 'updated-tag' })
         .expect(200);
 
-      expect(res.body.name).toBe('new-tag');
+      expect(res.body.name).toBe('updated-tag');
     });
 
     it('returns 404 for a non-existent id', async () => {
@@ -156,16 +128,12 @@ describe('Tags (e2e)', () => {
 
   describe('DELETE /api/v1/tags/:id', () => {
     it('deletes the tag and returns 204', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/tags')
-        .send({ name: 'to-delete' });
-
       await request(app.getHttpServer())
-        .delete(`/api/v1/tags/${created.body.id}`)
+        .delete(`/api/v1/tags/${tagId}`)
         .expect(204);
 
       await request(app.getHttpServer())
-        .get(`/api/v1/tags/${created.body.id}`)
+        .get(`/api/v1/tags/${tagId}`)
         .expect(404);
     });
 

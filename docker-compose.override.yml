@@ -31,21 +31,5 @@ services:
       cert-generator:
         condition: service_completed_successfully
 
-  seeder:
-    build:
-      context: ./apps/server
-      target: dev
-    volumes:
-      - ./apps/server/src:/app/src
-    env_file:
-      - ./apps/server/.env
-    environment:
-      DB_HOST: postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: npm run seed
-    restart: "no"
-
 volumes:
   nginx_certs:

@@ -56,26 +56,36 @@ cp .env.example .env
 | `ABN_AMRO_SCOPE`        | OAuth2 scopes to request                                                                                                       |
 | `ABN_AMRO_ACCESS_TOKEN` | Pre-configured access token — skips the OAuth2 flow if set. Obtain one by completing the flow and copying it from the response |
 
-## Seeding
-
-Populate the database with a test user, categories, and tags:
-
-```bash
-# Locally
-npm run seed
-
-# Docker (runs once and exits)
-docker compose run --rm seeder
-```
-
-The command is idempotent — it skips records that already exist.
-
-### Test user credentials
+## Test User Credentials
 
 | Field    | Value              |
 |----------|--------------------|
 | Email    | `test@example.com` |
 | Password | `password123`      |
+
+## Seeding
+
+### How it works
+
+Each service that owns seed data implements the `ISeeder` interface from `src/seeds/seeder.ts`, which requires two
+methods: `seedPriority(): number` and `seed(): Promise<void>`. The `seed()` method checks whether records already exist
+before inserting, making every run idempotent.
+
+`SeederModule` uses NestJS's `DiscoveryService` to find all providers that implement `ISeeder` at startup, sorts them by
+priority, and calls `seed()` on each in order. This means adding seed data to a new service only requires implementing
+the interface; no registration step is needed.
+
+### Seed constants
+
+All seed values are defined in [`src/seeds/seed-data.ts`](src/seeds/seed-data.ts) as exported constants. Both the seeder
+services and the E2E tests import from this file, so changing a seed value propagates automatically without having to
+update multiple places.
+
+### E2E tests
+
+E2E tests use the same seeding mechanism. Each test resets the in-memory SQLite database with
+`dataSource.synchronize(true)` and then calls `SeederService.run()` to restore the base data. Tests resolve entity IDs
+from the seeded records via service calls in `beforeEach`, so they never depend on hardcoded UUIDs.
 
 ## Running the application
 

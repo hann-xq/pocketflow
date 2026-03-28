@@ -1,29 +1,21 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { DataSource, Repository } from 'typeorm';
-import { Transaction } from '../src/transactions/entities/transaction.entity';
-import { User } from '../src/users/entities/user.entity';
-import { Category } from '../src/categories/entities/category.entity';
-import { Tag } from '../src/tags/entities/tag.entity';
+import { DataSource } from 'typeorm';
 import { createTestApp } from './test-utils';
 import { UsersModule } from '../src/users/users.module';
+import { UsersService } from '../src/users/users.service';
+import { SeederService } from '../src/seeds/seeder.service';
+import { SEED_USER } from '../src/seeds/seed-data';
 
 describe('Users (e2e)', () => {
   let app: INestApplication<App>;
-  let transactionRepo: Repository<Transaction>;
-  let userRepo: Repository<User>;
-  let categoryRepo: Repository<Category>;
-  let tagRepo: Repository<Tag>;
+  let dataSource: DataSource;
+  let userId: string;
 
   beforeAll(async () => {
     app = await createTestApp([UsersModule]);
-
-    const dataSource = app.get(DataSource);
-    transactionRepo = dataSource.getRepository(Transaction);
-    userRepo = dataSource.getRepository(User);
-    categoryRepo = dataSource.getRepository(Category);
-    tagRepo = dataSource.getRepository(Tag);
+    dataSource = app.get(DataSource);
   });
 
   afterAll(async () => {
@@ -31,42 +23,41 @@ describe('Users (e2e)', () => {
   });
 
   beforeEach(async () => {
-    const transactions = await transactionRepo.find({ relations: ['tags'] });
-    await transactionRepo.remove(transactions);
-    await userRepo.clear();
-    await categoryRepo.clear();
-    await tagRepo.clear();
+    // SQLite has no TRUNCATE; drop + recreate is the simplest reset
+    await dataSource.synchronize(true);
+    // Restore seeded base data and resolve the IDs for this test
+    await app.get(SeederService).run();
+
+    const users = await app.get(UsersService).findAll();
+    userId = users.find((u) => u.email === SEED_USER.email)!.id;
   });
 
   describe('POST /api/v1/users', () => {
     it('creates a user and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'test@example.com', password: 'password123' })
+        .send({ email: 'new@example.com', password: SEED_USER.password })
         .expect(201);
 
-      expect(res.body).toMatchObject({ email: 'test@example.com' });
+      expect(res.body).toMatchObject({ email: 'new@example.com' });
       expect(res.body.id).toBeDefined();
-      expect(res.body.password).not.toBe('password123');
+      expect(res.body.password).not.toBe(SEED_USER.password);
     });
 
     it('does not expose the password in the response', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'test@example.com', password: 'password123' })
+        .send({ email: 'new@example.com', password: SEED_USER.password })
         .expect(201);
 
       expect(res.body.password).toBeUndefined();
     });
 
     it('returns 409 for duplicate email', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'dup@example.com', password: 'password123' });
-
+      // SEED_USER.email is already seeded — no setup needed
       const res = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'dup@example.com', password: 'password123' })
+        .send({ email: SEED_USER.email, password: SEED_USER.password })
         .expect(409);
 
       expect(res.body.message).toContain('already exists');
@@ -75,14 +66,14 @@ describe('Users (e2e)', () => {
     it('returns 400 for invalid email', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'not-an-email', password: 'password123' })
+        .send({ email: 'not-an-email', password: SEED_USER.password })
         .expect(400);
     });
 
     it('returns 400 for password shorter than 8 characters', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'test@example.com', password: 'short' })
+        .send({ email: 'new@example.com', password: 'short' })
         .expect(400);
     });
 
@@ -90,8 +81,8 @@ describe('Users (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/users')
         .send({
-          email: 'test@example.com',
-          password: 'password123',
+          email: 'new@example.com',
+          password: SEED_USER.password,
           role: 'admin',
         })
         .expect(400);
@@ -100,26 +91,17 @@ describe('Users (e2e)', () => {
     it('returns 400 when email is missing', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ password: 'password123' })
+        .send({ password: SEED_USER.password })
         .expect(400);
     });
   });
 
   describe('GET /api/v1/users', () => {
-    it('returns an empty array when no users exist', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/v1/users')
-        .expect(200);
-      expect(res.body).toEqual([]);
-    });
-
     it('returns all users', async () => {
+      // One seeded user already present; add one more to verify the full list is returned
       await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'a@example.com', password: 'password123' });
-      await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'b@example.com', password: 'password123' });
+        .send({ email: 'extra@example.com', password: SEED_USER.password });
 
       const res = await request(app.getHttpServer())
         .get('/api/v1/users')
@@ -127,15 +109,11 @@ describe('Users (e2e)', () => {
 
       expect(res.body).toHaveLength(2);
       expect(res.body.map((u: any) => u.email)).toEqual(
-        expect.arrayContaining(['a@example.com', 'b@example.com']),
+        expect.arrayContaining([SEED_USER.email, 'extra@example.com']),
       );
     });
 
     it('does not expose passwords in the response', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'a@example.com', password: 'password123' });
-
       const res = await request(app.getHttpServer())
         .get('/api/v1/users')
         .expect(200);
@@ -146,24 +124,16 @@ describe('Users (e2e)', () => {
 
   describe('GET /api/v1/users/:id', () => {
     it('returns the user for a valid id', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'find@example.com', password: 'password123' });
-
       const res = await request(app.getHttpServer())
-        .get(`/api/v1/users/${created.body.id}`)
+        .get(`/api/v1/users/${userId}`)
         .expect(200);
 
-      expect(res.body.email).toBe('find@example.com');
+      expect(res.body.email).toBe(SEED_USER.email);
     });
 
     it('does not expose the password in the response', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'find@example.com', password: 'password123' });
-
       const res = await request(app.getHttpServer())
-        .get(`/api/v1/users/${created.body.id}`)
+        .get(`/api/v1/users/${userId}`)
         .expect(200);
 
       expect(res.body.password).toBeUndefined();
@@ -182,12 +152,8 @@ describe('Users (e2e)', () => {
 
   describe('PATCH /api/v1/users/:id', () => {
     it('updates the user email', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'before@example.com', password: 'password123' });
-
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/users/${created.body.id}`)
+        .patch(`/api/v1/users/${userId}`)
         .send({ email: 'after@example.com' })
         .expect(200);
 
@@ -195,12 +161,8 @@ describe('Users (e2e)', () => {
     });
 
     it('hashes the password on update', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'pwupdate@example.com', password: 'password123' });
-
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/users/${created.body.id}`)
+        .patch(`/api/v1/users/${userId}`)
         .send({ password: 'newpassword123' })
         .expect(200);
 
@@ -208,12 +170,8 @@ describe('Users (e2e)', () => {
     });
 
     it('does not expose the password in the response', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'pwupdate@example.com', password: 'password123' });
-
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/users/${created.body.id}`)
+        .patch(`/api/v1/users/${userId}`)
         .send({ email: 'updated@example.com' })
         .expect(200);
 
@@ -230,16 +188,12 @@ describe('Users (e2e)', () => {
 
   describe('DELETE /api/v1/users/:id', () => {
     it('deletes the user and returns 204', async () => {
-      const created = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'delete@example.com', password: 'password123' });
-
       await request(app.getHttpServer())
-        .delete(`/api/v1/users/${created.body.id}`)
+        .delete(`/api/v1/users/${userId}`)
         .expect(204);
 
       await request(app.getHttpServer())
-        .get(`/api/v1/users/${created.body.id}`)
+        .get(`/api/v1/users/${userId}`)
         .expect(404);
     });
 
