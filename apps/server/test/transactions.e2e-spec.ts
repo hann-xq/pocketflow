@@ -53,7 +53,7 @@ describe('Transactions (e2e)', () => {
     const categories = await app.get(CategoriesService).findAll();
     categoryId = categories[0].id;
 
-    const tags = await app.get(TagsService).findAll();
+    const tags = await app.get(TagsService).findAll(userId);
     tagId = tags[0].id;
 
     const bankAccounts = await app
