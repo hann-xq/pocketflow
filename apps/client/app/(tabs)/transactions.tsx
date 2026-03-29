@@ -9,9 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
-
-const API_URL =
-  "http://10.0.2.2:3000/api/v1/users/4f8d16ba-01bd-48a0-86e0-e8f0a3c7bb4b/transactions";
+import { api } from "@/lib/api";
 
 type ApiTransaction = {
   id: string;
@@ -53,9 +51,7 @@ function parseAmount(amount: string): number {
 }
 
 async function fetchTransactions(): Promise<ApiTransaction[]> {
-  const response = await fetch(API_URL);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+  return api.get("/users/8ecc37b5-9b4d-4c36-8990-1757bf926f88/transactions");
 }
 
 export default function Transactions() {
