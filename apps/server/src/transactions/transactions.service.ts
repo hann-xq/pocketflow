@@ -17,10 +17,14 @@ export class TransactionsService {
 
   async create(
     createTransactionDto: CreateTransactionDto,
+    bankAccountId: string,
   ): Promise<Transaction> {
     const { tagIds, ...transactionData } = createTransactionDto;
 
-    const transaction = this.transactionsRepository.create(transactionData);
+    const transaction = this.transactionsRepository.create({
+      ...transactionData,
+      bankAccountId,
+    });
 
     if (tagIds && tagIds.length > 0) {
       transaction.tags = await this.tagsRepository.findBy({ id: In(tagIds) });

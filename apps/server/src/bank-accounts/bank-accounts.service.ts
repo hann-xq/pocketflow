@@ -20,7 +20,10 @@ export class BankAccountsService implements ISeeder {
     private readonly usersRepository: Repository<User>,
   ) {}
 
-  async create(dto: CreateBankAccountDto): Promise<BankAccount> {
+  async create(
+    dto: CreateBankAccountDto,
+    userId: string,
+  ): Promise<BankAccount> {
     const existing = await this.bankAccountsRepository.findOneBy({
       accountNumber: dto.accountNumber,
     });
@@ -31,7 +34,7 @@ export class BankAccountsService implements ISeeder {
       );
     }
 
-    const bankAccount = this.bankAccountsRepository.create(dto);
+    const bankAccount = this.bankAccountsRepository.create({ ...dto, userId });
     return this.bankAccountsRepository.save(bankAccount);
   }
 
@@ -73,8 +76,7 @@ export class BankAccountsService implements ISeeder {
   }
 
   async remove(id: string): Promise<void> {
-    const bankAccount = await this.findOne(id);
-    await this.bankAccountsRepository.remove(bankAccount);
+    await this.bankAccountsRepository.delete(id);
   }
 
   seedPriority(): number {

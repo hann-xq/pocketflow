@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -14,6 +15,7 @@ import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -23,13 +25,13 @@ import {
 } from '@nestjs/swagger';
 import { Serialize } from '../common/interceptors/serialize.interceptor';
 import { Auth } from '../auth/decorators/auth.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 import { TransactionsService } from '../transactions/transactions.service';
-import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
-import { BankAccountResponseDto } from '../bank-accounts/dto/bank-account-response.dto';
 import { TransactionResponseDto } from '../transactions/dto/transaction-response.dto';
 
 @ApiTags('Users')
@@ -38,7 +40,6 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly transactionsService: TransactionsService,
-    private readonly bankAccountsService: BankAccountsService,
   ) {}
 
   @Post()
@@ -88,25 +89,26 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
-  @Get(':id/bank-accounts')
-  @Auth()
-  @Serialize(BankAccountResponseDto)
-  @ApiOperation({ summary: 'Get all bank accounts for a user' })
-  @ApiParam({ name: 'id', format: 'uuid' })
-  @ApiOkResponse({ type: [BankAccountResponseDto] })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  findBankAccounts(@Param('id', ParseUUIDPipe) id: string) {
-    return this.bankAccountsService.findAllForUser(id);
-  }
-
   @Get(':id/transactions')
   @Auth()
   @Serialize(TransactionResponseDto)
   @ApiOperation({ summary: 'Get all transactions for a user' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: [TransactionResponseDto] })
+  @ApiForbiddenResponse({
+    description: 'Cannot access transactions of another user',
+  })
   @ApiNotFoundResponse({ description: 'User not found' })
-  findTransactions(@Param('id', ParseUUIDPipe) id: string) {
+  findTransactions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    if (user.id !== id) {
+      throw new ForbiddenException(
+        'You are not allowed to access transactions of another user',
+      );
+    }
+
     return this.transactionsService.findAllForUser(id);
   }
 
