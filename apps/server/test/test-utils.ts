@@ -44,8 +44,8 @@ export async function createTestApp(
 
 export async function getToken(
   app: INestApplication<App>,
-  email = SEED_USER.email,
-  password = SEED_USER.password,
+  email: string = SEED_USER.email,
+  password: string = SEED_USER.password,
 ): Promise<string> {
   const { body } = await request(app.getHttpServer())
     .post('/api/v1/tokens')

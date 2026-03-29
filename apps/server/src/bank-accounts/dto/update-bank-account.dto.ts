@@ -2,5 +2,5 @@ import { OmitType, PartialType } from '@nestjs/swagger';
 import { CreateBankAccountDto } from './create-bank-account.dto';
 
 export class UpdateBankAccountDto extends PartialType(
-  OmitType(CreateBankAccountDto, ['userId', 'accountNumber'] as const),
+  OmitType(CreateBankAccountDto, ['accountNumber'] as const),
 ) {}

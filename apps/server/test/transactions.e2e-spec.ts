@@ -1,5 +1,5 @@
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { createTestApp, getToken } from './test-utils';
@@ -64,12 +64,54 @@ describe('Transactions (e2e)', () => {
     token = await getToken(app);
   });
 
-  describe('POST /api/v1/transactions', () => {
+  // Creates a second user with their own bank account and one transaction.
+  // Used by tests that verify cross-user access is forbidden.
+  async function setupOtherUserWithTransaction() {
+    const otherUser = await request(app.getHttpServer())
+      .post('/api/v1/users')
+      .send({
+        email: 'other@example.com',
+        password: SEED_USER.password,
+        firstName: 'Other',
+        lastName: 'User',
+      })
+      .expect(201);
+
+    const otherUserId = otherUser.body.id;
+
+    const otherToken = await getToken(
+      app,
+      'other@example.com',
+      SEED_USER.password,
+    );
+
+    const otherAccount = await request(app.getHttpServer())
+      .post(`/api/v1/users/${otherUserId}/bank-accounts`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ accountNumber: 'NL64ABNA0417164301', accountName: 'Other' })
+      .expect(201);
+    const otherAccountId = otherAccount.body.id;
+
+    const otherTx = await request(app.getHttpServer())
+      .post(`/api/v1/bank-accounts/${otherAccountId}/transactions`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ amount: -10, date: '2024-01-01', categoryId })
+      .expect(201);
+
+    return {
+      otherUserId,
+      otherToken,
+      otherAccountId,
+      otherTxId: otherTx.body.id,
+    };
+  }
+
+  describe('POST /api/v1/bank-accounts/:bankAccountId/transactions', () => {
     it('creates a minimal transaction and returns 201', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -42.5, date: '2024-01-15', bankAccountId, categoryId })
+        .send({ amount: -42.5, date: '2024-01-15', categoryId })
         .expect(201);
 
       expect(Number(res.body.amount)).toBe(-42.5);
@@ -79,7 +121,7 @@ describe('Transactions (e2e)', () => {
 
     it('creates a fully populated transaction', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -99.99,
@@ -87,7 +129,6 @@ describe('Transactions (e2e)', () => {
           description: 'Amazon purchase',
           counterpartyName: 'Amazon',
           counterpartyAccount: 'NL99AMAZ0000000001',
-          bankAccountId,
           categoryId,
           tagIds: [tagId],
         })
@@ -102,7 +143,7 @@ describe('Transactions (e2e)', () => {
 
     it('returns 400 when amount is missing', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
         .send({ date: '2024-01-15' })
         .expect(400);
@@ -110,7 +151,7 @@ describe('Transactions (e2e)', () => {
 
     it('returns 400 when date is missing', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10 })
         .expect(400);
@@ -118,38 +159,49 @@ describe('Transactions (e2e)', () => {
 
     it('returns 400 for an invalid date format', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: 'not-a-date' })
         .expect(400);
     });
 
-    it('creates a transaction linked to a bank account', async () => {
+    it('links the transaction to the bank account from the URL', async () => {
       const res = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -42.5, date: '2024-01-15', bankAccountId, categoryId })
+        .send({ amount: -42.5, date: '2024-01-15', categoryId })
         .expect(201);
 
       expect(res.body.bankAccountId).toBe(bankAccountId);
     });
 
-    it('returns 400 when bankAccountId is missing', async () => {
+    it('returns 404 for a non-existent bank account', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(
+          '/api/v1/bank-accounts/00000000-0000-0000-0000-000000000000/transactions',
+        )
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-15' })
-        .expect(400);
+        .send({ amount: -10, date: '2024-01-15', categoryId })
+        .expect(404);
+    });
+
+    it('returns 403 when adding a transaction to another user bank account', async () => {
+      const { otherAccountId } = await setupOtherUserWithTransaction();
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/bank-accounts/${otherAccountId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ amount: -10, date: '2024-01-01', categoryId })
+        .expect(403);
     });
 
     it('returns 400 for unknown fields', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -10,
           date: '2024-01-15',
-          bankAccountId,
           categoryId,
           extra: 'field',
         })
@@ -158,8 +210,8 @@ describe('Transactions (e2e)', () => {
 
     it('returns 401 when no token is provided', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
-        .send({ amount: -10, date: '2024-01-15', bankAccountId, categoryId })
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
+        .send({ amount: -10, date: '2024-01-15', categoryId })
         .expect(401);
     });
   });
@@ -175,12 +227,11 @@ describe('Transactions (e2e)', () => {
 
     it('returns transactions for the user with relations', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -20,
           date: '2024-01-10',
-          bankAccountId,
           categoryId,
           tagIds: [tagId],
         });
@@ -199,31 +250,17 @@ describe('Transactions (e2e)', () => {
     });
 
     it('only returns transactions belonging to the specified user', async () => {
-      const otherUser = await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'other@example.com', password: SEED_USER.password });
-      const otherAccount = await request(app.getHttpServer())
-        .post('/api/v1/bank-accounts')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          accountNumber: 'NL01ABNA0417164399',
-          accountName: 'Other',
-          userId: otherUser.body.id,
-        });
+      const { otherToken, otherAccountId } =
+        await setupOtherUserWithTransaction();
 
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
+        .send({ amount: -10, date: '2024-01-01', categoryId });
       await request(app.getHttpServer())
-        .post('/api/v1/transactions')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          amount: -20,
-          date: '2024-01-02',
-          bankAccountId: otherAccount.body.id,
-          categoryId,
-        });
+        .post(`/api/v1/bank-accounts/${otherAccountId}/transactions`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .send({ amount: -20, date: '2024-01-02', categoryId });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}/transactions`)
@@ -232,6 +269,15 @@ describe('Transactions (e2e)', () => {
 
       expect(res.body).toHaveLength(1);
       expect(res.body[0].bankAccount).toMatchObject({ userId });
+    });
+
+    it('returns 403 when accessing another user transactions', async () => {
+      const { otherUserId } = await setupOtherUserWithTransaction();
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/users/${otherUserId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
     });
 
     it('returns 400 for an invalid user id', async () => {
@@ -245,12 +291,11 @@ describe('Transactions (e2e)', () => {
   describe('GET /api/v1/transactions/:id', () => {
     it('returns the transaction with relations for a valid id', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -55,
           date: '2024-06-01',
-          bankAccountId,
           categoryId,
           tagIds: [tagId],
         });
@@ -265,6 +310,15 @@ describe('Transactions (e2e)', () => {
       expect(res.body.tags).toHaveLength(1);
     });
 
+    it('returns 403 when accessing another user transaction', async () => {
+      const { otherTxId } = await setupOtherUserWithTransaction();
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/transactions/${otherTxId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+    });
+
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
@@ -274,9 +328,9 @@ describe('Transactions (e2e)', () => {
 
     it('returns the bankAccount relation when set', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
+        .send({ amount: -10, date: '2024-01-01', categoryId });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/transactions/${created.body.id}`)
@@ -297,9 +351,9 @@ describe('Transactions (e2e)', () => {
   describe('PATCH /api/v1/transactions/:id', () => {
     it('updates the transaction amount and description', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
+        .send({ amount: -10, date: '2024-01-01', categoryId });
 
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/transactions/${created.body.id}`)
@@ -313,12 +367,11 @@ describe('Transactions (e2e)', () => {
 
     it('removes all tags from a transaction', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -10,
           date: '2024-01-01',
-          bankAccountId,
           categoryId,
           tagIds: [tagId],
         });
@@ -339,9 +392,9 @@ describe('Transactions (e2e)', () => {
 
     it('updates the category relation when categoryId changes', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
+        .send({ amount: -10, date: '2024-01-01', categoryId });
 
       const newCategory = await request(app.getHttpServer())
         .post('/api/v1/categories')
@@ -357,6 +410,16 @@ describe('Transactions (e2e)', () => {
       expect(res.body.categoryId).toBe(newCategoryId);
     });
 
+    it('returns 403 when updating another user transaction', async () => {
+      const { otherTxId } = await setupOtherUserWithTransaction();
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/transactions/${otherTxId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ amount: -5 })
+        .expect(403);
+    });
+
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .patch('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
@@ -369,9 +432,9 @@ describe('Transactions (e2e)', () => {
   describe('DELETE /api/v1/transactions/:id', () => {
     it('deletes the transaction and returns 204', async () => {
       const created = await request(app.getHttpServer())
-        .post('/api/v1/transactions')
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
+        .send({ amount: -10, date: '2024-01-01', categoryId });
 
       await request(app.getHttpServer())
         .delete(`/api/v1/transactions/${created.body.id}`)
@@ -382,6 +445,15 @@ describe('Transactions (e2e)', () => {
         .get(`/api/v1/transactions/${created.body.id}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(404);
+    });
+
+    it('returns 403 when deleting another user transaction', async () => {
+      const { otherTxId } = await setupOtherUserWithTransaction();
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/transactions/${otherTxId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
     });
 
     it('returns 404 for a non-existent id', async () => {

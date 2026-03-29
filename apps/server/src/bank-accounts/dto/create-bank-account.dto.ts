@@ -1,8 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
-import { IsInDatabase } from '../../validators/is-in-database.validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 import { IsDutchIban } from '../../validators/is-dutch-iban.validator';
-import { User } from '../../users/entities/user.entity';
 
 export class CreateBankAccountDto {
   @ApiProperty({
@@ -17,12 +15,4 @@ export class CreateBankAccountDto {
   @IsString()
   @IsNotEmpty()
   accountName: string;
-
-  @ApiProperty({
-    format: 'uuid',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @IsUUID()
-  @IsInDatabase(User)
-  userId: string;
 }
