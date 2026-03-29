@@ -51,7 +51,7 @@ function parseAmount(amount: string): number {
 }
 
 async function fetchTransactions(): Promise<ApiTransaction[]> {
-  return api.get("/users/8ecc37b5-9b4d-4c36-8990-1757bf926f88/transactions");
+  return api.get("/users/0b12db8d-0aae-43e4-b987-f72fde9ca2cc/transactions");
 }
 
 export default function Transactions() {
