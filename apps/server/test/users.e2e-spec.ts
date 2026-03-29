@@ -39,10 +39,19 @@ describe('Users (e2e)', () => {
     it('creates a user and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'new@example.com', password: SEED_USER.password })
+        .send({
+          email: 'new@example.com',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          password: SEED_USER.password,
+        })
         .expect(201);
 
-      expect(res.body).toMatchObject({ email: 'new@example.com' });
+      expect(res.body).toMatchObject({
+        email: 'new@example.com',
+        firstName: 'Jane',
+        lastName: 'Smith',
+      });
       expect(res.body.id).toBeDefined();
       expect(res.body.password).not.toBe(SEED_USER.password);
     });
@@ -50,7 +59,12 @@ describe('Users (e2e)', () => {
     it('does not expose the password in the response', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'new@example.com', password: SEED_USER.password })
+        .send({
+          email: 'new@example.com',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          password: SEED_USER.password,
+        })
         .expect(201);
 
       expect(res.body.password).toBeUndefined();
@@ -60,7 +74,12 @@ describe('Users (e2e)', () => {
       // SEED_USER.email is already seeded — no setup needed
       const res = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: SEED_USER.email, password: SEED_USER.password })
+        .send({
+          email: SEED_USER.email,
+          firstName: SEED_USER.firstName,
+          lastName: SEED_USER.lastName,
+          password: SEED_USER.password,
+        })
         .expect(409);
 
       expect(res.body.message).toContain('already exists');
@@ -69,14 +88,24 @@ describe('Users (e2e)', () => {
     it('returns 400 for invalid email', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'not-an-email', password: SEED_USER.password })
+        .send({
+          email: 'not-an-email',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          password: SEED_USER.password,
+        })
         .expect(400);
     });
 
     it('returns 400 for password shorter than 8 characters', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'new@example.com', password: 'short' })
+        .send({
+          email: 'new@example.com',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          password: 'short',
+        })
         .expect(400);
     });
 
@@ -85,6 +114,8 @@ describe('Users (e2e)', () => {
         .post('/api/v1/users')
         .send({
           email: 'new@example.com',
+          firstName: 'Jane',
+          lastName: 'Smith',
           password: SEED_USER.password,
           role: 'admin',
         })
@@ -94,7 +125,33 @@ describe('Users (e2e)', () => {
     it('returns 400 when email is missing', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ password: SEED_USER.password })
+        .send({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          password: SEED_USER.password,
+        })
+        .expect(400);
+    });
+
+    it('returns 400 when firstName is missing', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .send({
+          email: 'new@example.com',
+          lastName: 'Smith',
+          password: SEED_USER.password,
+        })
+        .expect(400);
+    });
+
+    it('returns 400 when lastName is missing', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .send({
+          email: 'new@example.com',
+          firstName: 'Jane',
+          password: SEED_USER.password,
+        })
         .expect(400);
     });
   });
@@ -102,9 +159,12 @@ describe('Users (e2e)', () => {
   describe('GET /api/v1/users', () => {
     it('returns all users', async () => {
       // One seeded user already present; add one more to verify the full list is returned
-      await request(app.getHttpServer())
-        .post('/api/v1/users')
-        .send({ email: 'extra@example.com', password: SEED_USER.password });
+      await request(app.getHttpServer()).post('/api/v1/users').send({
+        email: 'extra@example.com',
+        firstName: 'Extra',
+        lastName: 'User',
+        password: SEED_USER.password,
+      });
 
       const res = await request(app.getHttpServer())
         .get('/api/v1/users')
@@ -138,7 +198,11 @@ describe('Users (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body.email).toBe(SEED_USER.email);
+      expect(res.body).toMatchObject({
+        email: SEED_USER.email,
+        firstName: SEED_USER.firstName,
+        lastName: SEED_USER.lastName,
+      });
     });
 
     it('does not expose the password in the response', async () => {
@@ -180,6 +244,26 @@ describe('Users (e2e)', () => {
         .expect(200);
 
       expect(res.body.email).toBe('after@example.com');
+    });
+
+    it('updates the first name', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ firstName: 'Updated' })
+        .expect(200);
+
+      expect(res.body.firstName).toBe('Updated');
+    });
+
+    it('updates the last name', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ lastName: 'Updated' })
+        .expect(200);
+
+      expect(res.body.lastName).toBe('Updated');
     });
 
     it('hashes the password on update', async () => {

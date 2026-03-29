@@ -1,6 +1,8 @@
 export const SEED_USER = {
   email: 'test@example.com',
   password: 'password123',
+  firstName: 'Test',
+  lastName: 'User',
 } as const;
 
 export const SEED_BANK_ACCOUNT = {
