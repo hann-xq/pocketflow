@@ -22,12 +22,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Serialize } from '../common/interceptors/serialize.interceptor';
+import { Auth } from '../auth/decorators/auth.decorator';
 import { BankAccountsService } from './bank-accounts.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { BankAccountResponseDto } from './dto/bank-account-response.dto';
 
 @ApiTags('Bank Accounts')
+@Auth()
 @Serialize(BankAccountResponseDto)
 @Controller('bank-accounts')
 export class BankAccountsController {

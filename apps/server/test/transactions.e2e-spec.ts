@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { createTestApp } from './test-utils';
+import { createTestApp, getToken } from './test-utils';
 import { TransactionsModule } from '../src/transactions/transactions.module';
 import { UsersModule } from '../src/users/users.module';
 import { CategoriesModule } from '../src/categories/categories.module';
@@ -24,6 +24,7 @@ describe('Transactions (e2e)', () => {
   let categoryId: string;
   let tagId: string;
   let bankAccountId: string;
+  let token: string;
 
   beforeAll(async () => {
     app = await createTestApp([
@@ -59,12 +60,15 @@ describe('Transactions (e2e)', () => {
       .get(BankAccountsService)
       .findAllForUser(userId);
     bankAccountId = bankAccounts[0].id;
+
+    token = await getToken(app);
   });
 
   describe('POST /api/v1/transactions', () => {
     it('creates a minimal transaction and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -42.5, date: '2024-01-15', bankAccountId, categoryId })
         .expect(201);
 
@@ -76,6 +80,7 @@ describe('Transactions (e2e)', () => {
     it('creates a fully populated transaction', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -99.99,
           date: '2024-03-01',
@@ -98,6 +103,7 @@ describe('Transactions (e2e)', () => {
     it('returns 400 when amount is missing', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ date: '2024-01-15' })
         .expect(400);
     });
@@ -105,6 +111,7 @@ describe('Transactions (e2e)', () => {
     it('returns 400 when date is missing', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10 })
         .expect(400);
     });
@@ -112,6 +119,7 @@ describe('Transactions (e2e)', () => {
     it('returns 400 for an invalid date format', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: 'not-a-date' })
         .expect(400);
     });
@@ -119,6 +127,7 @@ describe('Transactions (e2e)', () => {
     it('creates a transaction linked to a bank account', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -42.5, date: '2024-01-15', bankAccountId, categoryId })
         .expect(201);
 
@@ -128,6 +137,7 @@ describe('Transactions (e2e)', () => {
     it('returns 400 when bankAccountId is missing', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: '2024-01-15' })
         .expect(400);
     });
@@ -135,6 +145,7 @@ describe('Transactions (e2e)', () => {
     it('returns 400 for unknown fields', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -10,
           date: '2024-01-15',
@@ -144,12 +155,20 @@ describe('Transactions (e2e)', () => {
         })
         .expect(400);
     });
+
+    it('returns 401 when no token is provided', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/transactions')
+        .send({ amount: -10, date: '2024-01-15', bankAccountId, categoryId })
+        .expect(401);
+    });
   });
 
   describe('GET /api/v1/users/:userId/transactions', () => {
     it('returns an empty array when the user has no transactions', async () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
       expect(res.body).toEqual([]);
     });
@@ -157,6 +176,7 @@ describe('Transactions (e2e)', () => {
     it('returns transactions for the user with relations', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -20,
           date: '2024-01-10',
@@ -167,6 +187,7 @@ describe('Transactions (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(res.body).toHaveLength(1);
@@ -183,6 +204,7 @@ describe('Transactions (e2e)', () => {
         .send({ email: 'other@example.com', password: SEED_USER.password });
       const otherAccount = await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           accountNumber: 'NL01ABNA0417164399',
           accountName: 'Other',
@@ -191,16 +213,21 @@ describe('Transactions (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
-      await request(app.getHttpServer()).post('/api/v1/transactions').send({
-        amount: -20,
-        date: '2024-01-02',
-        bankAccountId: otherAccount.body.id,
-        categoryId,
-      });
+      await request(app.getHttpServer())
+        .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          amount: -20,
+          date: '2024-01-02',
+          bankAccountId: otherAccount.body.id,
+          categoryId,
+        });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(res.body).toHaveLength(1);
@@ -210,6 +237,7 @@ describe('Transactions (e2e)', () => {
     it('returns 400 for an invalid user id', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/users/not-a-uuid/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .expect(400);
     });
   });
@@ -218,6 +246,7 @@ describe('Transactions (e2e)', () => {
     it('returns the transaction with relations for a valid id', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -55,
           date: '2024-06-01',
@@ -228,6 +257,7 @@ describe('Transactions (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(Number(res.body.amount)).toBe(-55);
@@ -238,16 +268,19 @@ describe('Transactions (e2e)', () => {
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
 
     it('returns the bankAccount relation when set', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(res.body.bankAccount).toMatchObject({ id: bankAccountId });
@@ -256,6 +289,7 @@ describe('Transactions (e2e)', () => {
     it('returns 400 for an invalid id', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/transactions/abc')
+        .set('Authorization', `Bearer ${token}`)
         .expect(400);
     });
   });
@@ -264,10 +298,12 @@ describe('Transactions (e2e)', () => {
     it('updates the transaction amount and description', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -25, description: 'Updated desc' })
         .expect(200);
 
@@ -278,6 +314,7 @@ describe('Transactions (e2e)', () => {
     it('removes all tags from a transaction', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           amount: -10,
           date: '2024-01-01',
@@ -288,11 +325,13 @@ describe('Transactions (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ tagIds: [] })
         .expect(200);
 
       const fetched = await request(app.getHttpServer())
         .get(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(fetched.body.tags).toHaveLength(0);
@@ -301,6 +340,7 @@ describe('Transactions (e2e)', () => {
     it('updates the category relation when categoryId changes', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       const newCategory = await request(app.getHttpServer())
@@ -310,6 +350,7 @@ describe('Transactions (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ categoryId: newCategoryId })
         .expect(200);
 
@@ -319,6 +360,7 @@ describe('Transactions (e2e)', () => {
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .patch('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -5 })
         .expect(404);
     });
@@ -328,20 +370,24 @@ describe('Transactions (e2e)', () => {
     it('deletes the transaction and returns 204', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       await request(app.getHttpServer())
         .delete(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(204);
 
       await request(app.getHttpServer())
         .get(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .delete('/api/v1/transactions/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
   });

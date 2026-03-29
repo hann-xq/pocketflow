@@ -13,6 +13,7 @@ async function bootstrap() {
       .setTitle('PocketFlow API')
       .setDescription('Backend API for the PocketFlow personal finance app')
       .setVersion('1.0')
+      .addBearerAuth()
       .build();
 
     const document = SwaggerModule.createDocument(app, config);

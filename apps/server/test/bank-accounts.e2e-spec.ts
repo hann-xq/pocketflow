@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { createTestApp } from './test-utils';
+import { createTestApp, getToken } from './test-utils';
 import { BankAccountsModule } from '../src/bank-accounts/bank-accounts.module';
 import { BankAccountsService } from '../src/bank-accounts/bank-accounts.service';
 import { UsersModule } from '../src/users/users.module';
@@ -22,6 +22,7 @@ describe('BankAccounts (e2e)', () => {
   let userId: string;
   let bankAccountId: string; // seeded bank account, restored before each test
   let categoryId: string;
+  let token: string;
 
   beforeAll(async () => {
     app = await createTestApp([
@@ -53,12 +54,15 @@ describe('BankAccounts (e2e)', () => {
 
     const categories = await app.get(CategoriesService).findAll();
     categoryId = categories[0].id;
+
+    token = await getToken(app);
   });
 
   describe('POST /api/v1/bank-accounts', () => {
     it('creates a bank account and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           accountNumber: ACCOUNT_NUMBER,
           accountName: 'Checking',
@@ -73,14 +77,18 @@ describe('BankAccounts (e2e)', () => {
     });
 
     it('returns 409 for duplicate account number', async () => {
-      await request(app.getHttpServer()).post('/api/v1/bank-accounts').send({
-        accountNumber: ACCOUNT_NUMBER,
-        accountName: 'Checking',
-        userId,
-      });
+      await request(app.getHttpServer())
+        .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          accountNumber: ACCOUNT_NUMBER,
+          accountName: 'Checking',
+          userId,
+        });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           accountNumber: ACCOUNT_NUMBER,
           accountName: 'Other',
@@ -94,6 +102,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 for a non-existent userId', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           accountNumber: ACCOUNT_NUMBER,
           accountName: 'Checking',
@@ -109,6 +118,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 when accountNumber is missing', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({ accountName: 'Checking', userId })
         .expect(400);
     });
@@ -116,6 +126,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 when accountName is missing', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({ accountNumber: ACCOUNT_NUMBER, userId })
         .expect(400);
     });
@@ -123,6 +134,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 when userId is missing', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({ accountNumber: ACCOUNT_NUMBER, accountName: 'Checking' })
         .expect(400);
     });
@@ -130,6 +142,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 when userId is not a UUID', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           accountNumber: ACCOUNT_NUMBER,
           accountName: 'Checking',
@@ -141,6 +154,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 for unknown fields', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           accountNumber: ACCOUNT_NUMBER,
           accountName: 'Checking',
@@ -153,6 +167,7 @@ describe('BankAccounts (e2e)', () => {
     it('allows multiple bank accounts for the same user', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           accountNumber: 'NL64ABNA0417164301',
           accountName: 'Checking',
@@ -162,6 +177,7 @@ describe('BankAccounts (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           accountNumber: 'NL37ABNA0417164302',
           accountName: 'Savings',
@@ -169,19 +185,34 @@ describe('BankAccounts (e2e)', () => {
         })
         .expect(201);
     });
+
+    it('returns 401 when no token is provided', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/bank-accounts')
+        .send({
+          accountNumber: ACCOUNT_NUMBER,
+          accountName: 'Checking',
+          userId,
+        })
+        .expect(401);
+    });
   });
 
   describe('GET /api/v1/users/:id/bank-accounts', () => {
     it('returns all bank accounts belonging to the user', async () => {
       // Seeded account is already present; add one more to verify the list
-      await request(app.getHttpServer()).post('/api/v1/bank-accounts').send({
-        accountNumber: ACCOUNT_NUMBER,
-        accountName: 'Savings',
-        userId,
-      });
+      await request(app.getHttpServer())
+        .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          accountNumber: ACCOUNT_NUMBER,
+          accountName: 'Savings',
+          userId,
+        });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}/bank-accounts`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(res.body).toHaveLength(2);
@@ -192,14 +223,18 @@ describe('BankAccounts (e2e)', () => {
         .post('/api/v1/users')
         .send({ email: 'other@example.com', password: SEED_USER.password });
 
-      await request(app.getHttpServer()).post('/api/v1/bank-accounts').send({
-        accountNumber: ACCOUNT_NUMBER,
-        accountName: 'Other',
-        userId: otherUser.body.id,
-      });
+      await request(app.getHttpServer())
+        .post('/api/v1/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          accountNumber: ACCOUNT_NUMBER,
+          accountName: 'Other',
+          userId: otherUser.body.id,
+        });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}/bank-accounts`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       // Only the seeded account belongs to userId
@@ -210,6 +245,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 for an invalid user id', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/users/not-a-uuid/bank-accounts')
+        .set('Authorization', `Bearer ${token}`)
         .expect(400);
     });
   });
@@ -218,6 +254,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns the bank account for a valid id', async () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(res.body.accountNumber).toBe(SEED_BANK_ACCOUNT.accountNumber);
@@ -227,12 +264,14 @@ describe('BankAccounts (e2e)', () => {
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/bank-accounts/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
 
     it('returns 400 for an invalid id', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/bank-accounts/abc')
+        .set('Authorization', `Bearer ${token}`)
         .expect(400);
     });
   });
@@ -241,6 +280,7 @@ describe('BankAccounts (e2e)', () => {
     it('updates the account name', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ accountName: 'Main Account' })
         .expect(200);
 
@@ -250,6 +290,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 when attempting to change the account number', async () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ accountNumber: 'NL37ABNA0417164399' })
         .expect(400);
     });
@@ -261,6 +302,7 @@ describe('BankAccounts (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ userId: otherUser.body.id })
         .expect(400);
     });
@@ -268,6 +310,7 @@ describe('BankAccounts (e2e)', () => {
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .patch('/api/v1/bank-accounts/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${token}`)
         .send({ accountName: 'X' })
         .expect(404);
     });
@@ -277,22 +320,26 @@ describe('BankAccounts (e2e)', () => {
     it('deletes the bank account and returns 204', async () => {
       await request(app.getHttpServer())
         .delete(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(204);
 
       await request(app.getHttpServer())
         .get(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
 
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .delete('/api/v1/bank-accounts/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
 
     it('deletes all bank accounts when the owner user is deleted', async () => {
       await request(app.getHttpServer())
         .delete(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(204);
 
       const remaining = await app
@@ -304,14 +351,17 @@ describe('BankAccounts (e2e)', () => {
     it('deletes transactions when the bank account is deleted', async () => {
       const tx = await request(app.getHttpServer())
         .post('/api/v1/transactions')
+        .set('Authorization', `Bearer ${token}`)
         .send({ amount: -10, date: '2024-01-01', bankAccountId, categoryId });
 
       await request(app.getHttpServer())
         .delete(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(204);
 
       await request(app.getHttpServer())
         .get(`/api/v1/transactions/${tx.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
   });

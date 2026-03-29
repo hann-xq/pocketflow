@@ -1,3 +1,4 @@
+import request from 'supertest';
 import { INestApplication, ModuleMetadata } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -7,6 +8,8 @@ import { App } from 'supertest/types';
 import { configureApp } from '../src/server';
 import { ValidatorsModule } from '../src/validators/validators.module';
 import { SeederModule } from '../src/seeds/seeder.module';
+import { AuthModule } from '../src/auth/auth.module';
+import { SEED_USER } from '../src/seeds/seed-data';
 
 export async function createTestApp(
   imports?: ModuleMetadata['imports'],
@@ -19,6 +22,7 @@ export async function createTestApp(
       synchronize: true,
       entities: [__dirname + '/../src/**/*.entity{.ts,.js}'],
     }),
+    AuthModule,
     SeederModule,
     ValidatorsModule,
   ];
@@ -36,4 +40,16 @@ export async function createTestApp(
   await app.init();
 
   return app;
+}
+
+export async function getToken(
+  app: INestApplication<App>,
+  email = SEED_USER.email,
+  password = SEED_USER.password,
+): Promise<string> {
+  const { body } = await request(app.getHttpServer())
+    .post('/api/v1/tokens')
+    .send({ email, password });
+
+  return body.accessToken as string;
 }

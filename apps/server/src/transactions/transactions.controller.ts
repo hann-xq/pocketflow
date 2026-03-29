@@ -21,12 +21,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Serialize } from '../common/interceptors/serialize.interceptor';
+import { Auth } from '../auth/decorators/auth.decorator';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionResponseDto } from './dto/transaction-response.dto';
 
 @ApiTags('Transactions')
+@Auth()
 @Serialize(TransactionResponseDto)
 @Controller('transactions')
 export class TransactionsController {
