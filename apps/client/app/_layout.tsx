@@ -1,9 +1,11 @@
+import LoginScreen from "@/components/LoginScreen";
 import { initDatabase, seedDatabase } from "@/database/database";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
-import { AppRegistry, Image, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, AppRegistry, Image, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider } from 'react-native-paper';
 import './global.css';
@@ -12,8 +14,9 @@ const queryClient = new QueryClient();
 
 const logo = require('../assets/images/logo.png');
 
-export default function RootLayout() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+function AppContent() {
+  const { token, isLoading: tokenLoading } = useAuth();
+  const [bioPassed, setBioPassed] = useState(false);
   const [authFailed, setAuthFailed] = useState(false);
 
   useEffect(() => {
@@ -31,7 +34,7 @@ export default function RootLayout() {
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
     if (!hasHardware || !isEnrolled) {
-      setIsAuthenticated(true);
+      setBioPassed(true);
       return;
     }
     const result = await LocalAuthentication.authenticateAsync({
@@ -42,13 +45,13 @@ export default function RootLayout() {
     });
 
     if (result.success) {
-      setIsAuthenticated(true);
+      setBioPassed(true);
     } else {
       setAuthFailed(true);
     }
   }
 
-  if (!isAuthenticated) {
+  if (!bioPassed) {
     return (
       <View className="flex-1 bg-background items-center justify-center p-8">
         <Image
@@ -88,23 +91,43 @@ export default function RootLayout() {
     );
   }
 
+  if (tokenLoading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!token) {
+    return <LoginScreen />;
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView>
-        <PaperProvider>
-          <Stack>
-            <Stack.Screen
-              name="(tabs)"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="transactions/[id]"
-              options={{ headerShown: false }}
-            />
-          </Stack>
-        </PaperProvider>
-      </GestureHandlerRootView>
-    </QueryClientProvider>
+    <Stack>
+      <Stack.Screen
+        name="(tabs)"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="transactions/[id]"
+        options={{ headerShown: false }}
+      />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView>
+          <PaperProvider>
+            <AppContent />
+          </PaperProvider>
+        </GestureHandlerRootView>
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }
 
