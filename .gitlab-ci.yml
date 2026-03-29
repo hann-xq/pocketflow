@@ -89,6 +89,8 @@ test-server:
   extends: .server
   stage: test
   needs: [ npm-install-server ]
+  variables:
+    JWT_SECRET: ci-test-secret
   script:
     - cd apps/server
     - npm run test:ci

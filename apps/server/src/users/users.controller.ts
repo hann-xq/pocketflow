@@ -22,6 +22,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Serialize } from '../common/interceptors/serialize.interceptor';
+import { Auth } from '../auth/decorators/auth.decorator';
 import { UsersService } from './users.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
@@ -52,6 +53,7 @@ export class UsersController {
   }
 
   @Get()
+  @Auth()
   @Serialize(UserResponseDto)
   @ApiOperation({ summary: 'Get all users' })
   @ApiOkResponse({ type: [UserResponseDto] })
@@ -60,6 +62,7 @@ export class UsersController {
   }
 
   @Get(':id')
+  @Auth()
   @Serialize(UserResponseDto)
   @ApiOperation({ summary: 'Get a user by ID' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -70,6 +73,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Auth()
   @Serialize(UserResponseDto)
   @ApiOperation({ summary: 'Update a user' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -85,6 +89,7 @@ export class UsersController {
   }
 
   @Get(':id/bank-accounts')
+  @Auth()
   @Serialize(BankAccountResponseDto)
   @ApiOperation({ summary: 'Get all bank accounts for a user' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -95,6 +100,7 @@ export class UsersController {
   }
 
   @Get(':id/transactions')
+  @Auth()
   @Serialize(TransactionResponseDto)
   @ApiOperation({ summary: 'Get all transactions for a user' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -105,6 +111,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @Auth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a user' })
   @ApiParam({ name: 'id', format: 'uuid' })

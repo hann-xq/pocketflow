@@ -41,6 +41,10 @@ export class UsersService implements ISeeder {
     return this.usersRepository.find();
   }
 
+  findByEmail(email: string): Promise<User | null> {
+    return this.usersRepository.findOneBy({ email });
+  }
+
   findOne(id: string): Promise<User> {
     return this.usersRepository.findOneByOrFail({ id });
   }
