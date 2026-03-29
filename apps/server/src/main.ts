@@ -14,6 +14,11 @@ async function bootstrap() {
       .setDescription('Backend API for the PocketFlow personal finance app')
       .setVersion('1.0')
       .addBearerAuth()
+      .addTag('Authentication') // Prioritize authentication-related endpoints so that they appear first.
+      .addTag(
+        'Tags',
+        'Tags are personal; each tag is owned by the authenticated user and only visible to them.',
+      )
       .build();
 
     const document = SwaggerModule.createDocument(app, config);

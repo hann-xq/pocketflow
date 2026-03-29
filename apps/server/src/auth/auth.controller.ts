@@ -6,7 +6,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
+import { CreateTokenDto } from './dto/create-token.dto';
 import { TokenResponseDto } from './dto/token-response.dto';
 
 @ApiTags('Authentication')
@@ -19,7 +19,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Create a JWT access token' })
   @ApiOkResponse({ type: TokenResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
-  create(@Body() loginDto: LoginDto): Promise<TokenResponseDto> {
-    return this.authService.login(loginDto.email, loginDto.password);
+  create(@Body() data: CreateTokenDto): Promise<TokenResponseDto> {
+    return this.authService.login(data.email, data.password);
   }
 }
