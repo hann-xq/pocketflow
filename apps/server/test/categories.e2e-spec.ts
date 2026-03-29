@@ -111,7 +111,9 @@ describe('Categories (e2e)', () => {
     });
 
     it('returns 400 for an invalid id', async () => {
-      await request(app.getHttpServer()).get('/api/v1/categories/abc').expect(400);
+      await request(app.getHttpServer())
+        .get('/api/v1/categories/abc')
+        .expect(400);
     });
   });
 
