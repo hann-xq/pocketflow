@@ -66,6 +66,14 @@ export class UsersService implements ISeeder {
       user.email = data.email;
     }
 
+    if (data.firstName) {
+      user.firstName = data.firstName;
+    }
+
+    if (data.lastName) {
+      user.lastName = data.lastName;
+    }
+
     if (data.password) {
       user.password = await bcrypt.hash(data.password, 10);
     }
@@ -88,6 +96,8 @@ export class UsersService implements ISeeder {
     await this.usersRepository.save(
       this.usersRepository.create({
         email: SEED_USER.email,
+        firstName: SEED_USER.firstName,
+        lastName: SEED_USER.lastName,
         password: await bcrypt.hash(SEED_USER.password, 10),
       }),
     );

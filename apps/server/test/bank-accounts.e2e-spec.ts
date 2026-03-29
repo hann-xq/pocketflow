@@ -221,7 +221,12 @@ describe('BankAccounts (e2e)', () => {
     it('only returns bank accounts belonging to the specified user', async () => {
       const otherUser = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'other@example.com', password: SEED_USER.password });
+        .send({
+          firstName: 'Other',
+          lastName: 'User',
+          email: 'other@example.com',
+          password: SEED_USER.password,
+        });
 
       await request(app.getHttpServer())
         .post('/api/v1/bank-accounts')
@@ -298,7 +303,12 @@ describe('BankAccounts (e2e)', () => {
     it('returns 400 when attempting to change the userId', async () => {
       const otherUser = await request(app.getHttpServer())
         .post('/api/v1/users')
-        .send({ email: 'other@example.com', password: SEED_USER.password });
+        .send({
+          firstName: 'Other',
+          lastName: 'User',
+          email: 'other@example.com',
+          password: SEED_USER.password,
+        });
 
       await request(app.getHttpServer())
         .patch(`/api/v1/bank-accounts/${bankAccountId}`)
