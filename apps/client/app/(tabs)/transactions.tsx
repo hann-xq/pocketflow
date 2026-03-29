@@ -10,6 +10,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 
 type ApiTransaction = {
   id: string;
@@ -50,14 +51,12 @@ function parseAmount(amount: string): number {
   return parseFloat(amount);
 }
 
-async function fetchTransactions(): Promise<ApiTransaction[]> {
-  return api.get("/users/0b12db8d-0aae-43e4-b987-f72fde9ca2cc/transactions");
-}
-
 export default function Transactions() {
+  const { userId } = useAuth();
   const { data: transactions = [], isLoading, error } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: fetchTransactions,
+    queryKey: ["transactions", userId],
+    queryFn: () => api.get<ApiTransaction[]>(`/users/${userId}/transactions`),
+    enabled: !!userId,
   });
 
   const sections = groupByDate(transactions);
