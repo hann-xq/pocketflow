@@ -20,7 +20,9 @@ describe('App (e2e)', () => {
   });
 
   it('returns 404 for unknown routes under /api', () => {
-    return request(app.getHttpServer()).get('/api/v1/unknown-route').expect(404);
+    return request(app.getHttpServer())
+      .get('/api/v1/unknown-route')
+      .expect(404);
   });
 
   it('rejects requests with extra body fields (global validation pipe)', () => {

@@ -28,7 +28,8 @@ export class TransactionsService {
       transaction.tags = [];
     }
 
-    return this.transactionsRepository.save(transaction);
+    const saved = await this.transactionsRepository.save(transaction);
+    return this.findOne(saved.id);
   }
 
   findAllForUser(userId: string): Promise<Transaction[]> {
@@ -83,7 +84,8 @@ export class TransactionsService {
           : [];
     }
 
-    return this.transactionsRepository.save(transaction, { reload: true });
+    await this.transactionsRepository.save(transaction);
+    return this.findOne(id);
   }
 
   async remove(id: string): Promise<void> {
