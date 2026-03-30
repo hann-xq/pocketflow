@@ -1,27 +1,48 @@
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as https from 'https';
 import * as path from 'path';
+import { isAxiosError } from 'axios';
 import { lastValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DomainException } from '../common/exceptions/domain.exception';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ExternalServiceException } from '../common/exceptions/external-service.exception';
 import { NotAuthorizedException } from '../common/exceptions/not-authorized.exception';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Transaction } from '../transactions/entities/transaction.entity';
 import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
+import { BankConnection } from './entities/bank-connection.entity';
 import { AbnAmroTokenResponse } from './dto/abn-amro-token.dto';
 import {
   AbnAmroTransaction,
   AbnAmroTransactionsResponse,
 } from './dto/abn-amro-transaction.dto';
 
+/**
+ * How long a pending OAuth2 state remains valid. Ten minutes is the conventional
+ * window used across OAuth2 implementations; generous enough for a user to
+ * complete the consent flow while short enough to limit the exposure window.
+ *
+ * TODO: In-memory state is lost on server restart and is not shared between
+ * instances. Replace this map with a shared store (e.g. Redis) if that matters.
+ */
+const STATE_TTL_MS = 10 * 60 * 1000;
+
 @Injectable()
 export class AbnAmroService {
   private readonly logger = new Logger(AbnAmroService.name);
 
-  private accessToken: string | null = null;
-  private tokenExpiry: Date | null = null;
+  /**
+   * Short-lived in-memory map used to associate OAuth2 state with the user that
+   * initiated the authorization flow. Entries expire after STATE_TTL_MS.
+   */
+  private readonly pendingStates = new Map<
+    string,
+    { userId: string; bankAccountId: string; createdAt: Date }
+  >();
 
   private readonly authUrl: string;
   private readonly tokenUrl: string;
@@ -37,6 +58,8 @@ export class AbnAmroService {
     configService: ConfigService,
     private readonly transactionsService: TransactionsService,
     private readonly bankAccountsService: BankAccountsService,
+    @InjectRepository(BankConnection)
+    private readonly tokenRepository: Repository<BankConnection>,
   ) {
     this.authUrl = configService.get(
       'ABN_AMRO_AUTH_URL',
@@ -64,35 +87,56 @@ export class AbnAmroService {
       configService.get<string>('ABN_AMRO_CERT_PATH'),
       configService.get<string>('ABN_AMRO_KEY_PATH'),
     );
-
-    const defaultToken = configService.get<string>('ABN_AMRO_ACCESS_TOKEN');
-    if (defaultToken) {
-      this.accessToken = defaultToken;
-      this.tokenExpiry = new Date('9999-12-31');
-      this.logger.log(
-        'Using pre-configured ABN_AMRO_ACCESS_TOKEN from environment',
-      );
-    }
   }
 
-  getAuthorizationUrl(): string {
+  async getAuthorizationUrl(
+    userId: string,
+    accountNumber: string,
+  ): Promise<string> {
+    const bankAccount =
+      await this.bankAccountsService.findOrCreateByAccountNumber(
+        accountNumber,
+        userId,
+      );
+
+    const state = crypto.randomBytes(16).toString('hex');
+    this.pendingStates.set(state, {
+      userId,
+      bankAccountId: bankAccount.id,
+      createdAt: new Date(),
+    });
+
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: this.clientId,
       redirect_uri: this.redirectUri,
       scope: this.scope,
+      state,
     });
 
     return `${this.authUrl}?${params.toString()}`;
   }
 
-  async handleCallback(code: string): Promise<{ accessToken: string }> {
+  async handleCallback(code: string, state: string): Promise<void> {
+    const pending = this.pendingStates.get(state);
+    this.pendingStates.delete(state);
+
+    if (!pending || Date.now() - pending.createdAt.getTime() > STATE_TTL_MS) {
+      throw new NotAuthorizedException(
+        'Invalid or expired OAuth2 state. Please restart the authorization flow.',
+      );
+    }
+
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       client_id: this.clientId,
       redirect_uri: this.redirectUri,
     });
+
+    this.logger.log(
+      `Exchanging authorization code for bank account ${pending.bankAccountId}...`,
+    );
 
     try {
       const response = await lastValueFrom(
@@ -106,32 +150,105 @@ export class AbnAmroService {
         ),
       );
 
-      this.accessToken = response.data.access_token;
-      this.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
-      this.logger.log('Access token obtained successfully');
+      const { access_token, refresh_token, expires_in } = response.data;
+      const expiresAt = new Date(Date.now() + expires_in * 1000);
 
-      return { accessToken: this.accessToken };
+      await this.saveToken(
+        pending.bankAccountId,
+        access_token,
+        refresh_token ?? null,
+        expiresAt,
+      );
+
+      this.logger.log(
+        `Access token stored for bank account ${pending.bankAccountId}`,
+      );
     } catch (error: unknown) {
-      throw this.unwrapTokenError(error);
+      const wrapped = this.unwrapTokenError(error);
+      this.logger.error(`Token exchange failed: ${wrapped.message}`);
+
+      throw wrapped;
     }
   }
 
-  isAuthorized(): boolean {
-    return !!(
-      this.accessToken &&
-      this.tokenExpiry &&
-      this.tokenExpiry > new Date()
+  async syncTransactions(
+    accountNumber: string,
+    userId: string,
+    categoryId: string,
+  ): Promise<{ imported: number; skipped: number }> {
+    const bankAccount =
+      await this.bankAccountsService.findOrCreateByAccountNumber(
+        accountNumber,
+        userId,
+      );
+
+    const accessToken = await this.getTokenForBankAccount(bankAccount.id);
+
+    this.logger.log(`Fetching transactions for account ${accountNumber}...`);
+    const abnTransactions = await this.fetchTransactions(
+      accessToken,
+      accountNumber,
     );
+    this.logger.log(`Received ${abnTransactions.length} transactions from API`);
+
+    const entities = abnTransactions.map((t) =>
+      this.mapToEntity(t, accountNumber, bankAccount.id, categoryId),
+    );
+
+    const seen = await this.transactionsService.findExistingExternalIds(
+      bankAccount.id,
+      entities.map((e) => e.externalId as string),
+    );
+
+    const newEntities = entities.filter((e) => {
+      if (seen.has(e.externalId as string)) {
+        return false;
+      }
+
+      seen.add(e.externalId as string);
+      return true;
+    });
+
+    if (newEntities.length > 0) {
+      await this.transactionsService.bulkCreate(newEntities);
+    }
+
+    const skipped = entities.length - newEntities.length;
+    this.logger.log(
+      `Imported ${newEntities.length} transactions, skipped ${skipped} duplicates`,
+    );
+
+    return { imported: newEntities.length, skipped };
   }
 
-  private getStoredToken(): string {
-    if (!this.isAuthorized()) {
+  private async getTokenForBankAccount(bankAccountId: string): Promise<string> {
+    const record = await this.tokenRepository.findOneBy({ bankAccountId });
+
+    if (!record || record.expiresAt <= new Date()) {
       throw new NotAuthorizedException(
-        'Not authorized. Visit GET /api/abn-amro/authorize to start the OAuth2 flow.',
+        'No valid ABN AMRO token found for this bank account. ' +
+          'Call GET /api/v1/abn-amro/authorization-url to start the OAuth2 flow.',
       );
     }
 
-    return this.accessToken!;
+    return record.accessToken;
+  }
+
+  private async saveToken(
+    bankAccountId: string,
+    plainAccessToken: string,
+    plainRefreshToken: string | null,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.tokenRepository.upsert(
+      {
+        bankAccountId,
+        accessToken: plainAccessToken,
+        refreshToken: plainRefreshToken,
+        expiresAt,
+      },
+      ['bankAccountId'],
+    );
   }
 
   private buildMtlsAgent(
@@ -165,7 +282,7 @@ export class AbnAmroService {
     }
   }
 
-  private unwrapTokenError(error: unknown): Error {
+  private unwrapTokenError(error: unknown): ExternalServiceException {
     const aggregate =
       error instanceof AggregateError
         ? error
@@ -178,12 +295,13 @@ export class AbnAmroService {
         this.logger.error(`Token request error [${i}]: ${e.message}`),
       );
 
-      return new Error(
+      return new ExternalServiceException(
         `Token request failed: ${aggregate.errors.map((e: Error) => e.message).join('; ')}`,
       );
     }
 
-    return error instanceof Error ? error : new Error(String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    return new ExternalServiceException(`Token request failed: ${message}`);
   }
 
   private async fetchTransactions(
@@ -191,15 +309,11 @@ export class AbnAmroService {
     accountNumber: string,
   ): Promise<AbnAmroTransaction[]> {
     const allTransactions: AbnAmroTransaction[] = [];
+    const url = `${this.apiUrl}/v1/accounts/${accountNumber}/transactions`;
     let nextPageKey: string | null = null;
 
     do {
-      const url = `${this.apiUrl}/v1/accounts/${accountNumber}/transactions`;
-      const params: Record<string, string> = {};
-
-      if (nextPageKey) {
-        params['nextPageKey'] = nextPageKey;
-      }
+      const params: Record<string, string> = nextPageKey ? { nextPageKey } : {};
 
       try {
         const response = await lastValueFrom(
@@ -212,12 +326,31 @@ export class AbnAmroService {
           }),
         );
 
-        allTransactions.push(...response.data.transactions);
+        const page = response.data.transactions;
+        allTransactions.push(...page);
         nextPageKey = response.data.nextPageKey;
-      } catch {
-        // Let the error fall through; it is possible that the ABN AMRO API is down or rejects our request.
-        // However, we have to break out of the loop to prevent an infinite retry loop.
-        break;
+        this.logger.log(
+          `Fetched ${page.length} transactions (total so far: ${allTransactions.length})`,
+        );
+      } catch (error: unknown) {
+        if (isAxiosError(error)) {
+          if (error.response?.status === 401) {
+            throw new NotAuthorizedException(
+              'ABN AMRO access token is expired or invalid. ' +
+                'Call GET /api/v1/abn-amro/authorization-url to re-authorize.',
+            );
+          }
+
+          if (error.response?.status === 403) {
+            throw new NotAuthorizedException(
+              'ABN AMRO denied access to this account. ' +
+                'Ensure you consented to the correct account during the OAuth2 flow.',
+            );
+          }
+        }
+
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        throw new ExternalServiceException(`ABN AMRO request failed: ${msg}`);
       }
     } while (nextPageKey);
 
@@ -226,11 +359,20 @@ export class AbnAmroService {
 
   private mapToEntity(
     abnTransaction: AbnAmroTransaction,
+    accountNumber: string,
     bankAccountId: string,
     categoryId: string,
   ): Partial<Transaction> {
     return {
-      description: abnTransaction.description ?? null,
+      externalId:
+        abnTransaction.transactionId ||
+        [
+          accountNumber,
+          abnTransaction.bookDate,
+          abnTransaction.amount,
+          abnTransaction.counterPartyAccountNumber ?? '',
+        ].join('|'),
+      description: abnTransaction.descriptionLines?.join('\n') ?? null,
       amount: abnTransaction.amount,
       date: abnTransaction.bookDate,
       counterpartyName: abnTransaction.counterPartyName ?? null,
@@ -239,73 +381,5 @@ export class AbnAmroService {
       bankAccountId,
       tags: [],
     };
-  }
-
-  async syncTransactions(
-    accountNumber?: string,
-    userId?: string,
-    categoryId?: string,
-  ): Promise<{ imported: number; errors: string[] }> {
-    if (!accountNumber) {
-      return {
-        imported: 0,
-        errors: ['accountNumber query parameter is required'],
-      };
-    }
-
-    if (!userId) {
-      return {
-        imported: 0,
-        errors: ['userId query parameter is required'],
-      };
-    }
-
-    if (!categoryId) {
-      return {
-        imported: 0,
-        errors: ['categoryId query parameter is required'],
-      };
-    }
-
-    const errors: string[] = [];
-
-    try {
-      const accessToken = this.getStoredToken();
-
-      const bankAccount =
-        await this.bankAccountsService.findOrCreateByAccountNumber(
-          accountNumber,
-          userId,
-        );
-      this.logger.log(
-        `Using bank account ${bankAccount.id} for account number ${accountNumber}`,
-      );
-
-      this.logger.log(`Fetching transactions for account ${accountNumber}...`);
-      const abnTransactions = await this.fetchTransactions(
-        accessToken,
-        accountNumber,
-      );
-      this.logger.log(`Received ${abnTransactions.length} transactions`);
-
-      const entities = abnTransactions.map((t) =>
-        this.mapToEntity(t, bankAccount.id, categoryId),
-      );
-      await this.transactionsService.bulkCreate(entities);
-
-      return { imported: entities.length, errors };
-    } catch (error: unknown) {
-      if (error instanceof DomainException) {
-        throw error;
-      }
-
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-
-      this.logger.error(`ABN AMRO sync failed: ${message}`);
-      errors.push(message);
-
-      return { imported: 0, errors };
-    }
   }
 }

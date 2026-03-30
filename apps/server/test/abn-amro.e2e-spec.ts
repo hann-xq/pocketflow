@@ -4,7 +4,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { of } from 'rxjs';
-import { createTestApp } from './test-utils';
+import { createTestApp, getToken } from './test-utils';
 import { AbnAmroModule } from '../src/abn-amro/abn-amro.module';
 import { AbnAmroService } from '../src/abn-amro/abn-amro.service';
 import { UsersModule } from '../src/users/users.module';
@@ -23,7 +23,7 @@ describe('AbnAmro (e2e)', () => {
   let httpService: HttpService;
   let abnAmroService: AbnAmroService;
 
-  // IDs for shared test fixtures
+  let token: string;
   let userId: string;
   let categoryId: string;
 
@@ -47,41 +47,44 @@ describe('AbnAmro (e2e)', () => {
 
     jest.restoreAllMocks();
     jest
-      .spyOn(abnAmroService as any, 'getStoredToken')
-      .mockReturnValue('mock-token');
+      .spyOn(abnAmroService as any, 'getTokenForBankAccount')
+      .mockResolvedValue('mock-token');
 
     const users = await app.get(UsersService).findAll();
     userId = users.find((u) => u.email === SEED_USER.email)!.id;
+    token = await getToken(app);
 
     const categories = await app.get(CategoriesService).findAll();
     categoryId = categories[0].id;
   });
 
   describe('POST /api/v1/abn-amro/sync', () => {
-    it('returns an error when accountNumber query parameter is missing', async () => {
-      const res = await request(app.getHttpServer())
+    it('returns 401 when no JWT is provided', async () => {
+      await request(app.getHttpServer())
         .post('/api/v1/abn-amro/sync')
-        .expect(200);
-
-      expect(res.body).toMatchObject({
-        imported: 0,
-        errors: expect.arrayContaining([
-          expect.stringContaining('accountNumber query parameter is required'),
-        ]),
-      });
+        .expect(401);
     });
 
-    it('returns an error when userId query parameter is missing', async () => {
+    it('returns 400 when accountNumber query parameter is missing', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/abn-amro/sync')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+
+      expect(res.body.message).toContain(
+        'accountNumber query parameter is required',
+      );
+    });
+
+    it('returns 400 when categoryId query parameter is missing', async () => {
       const res = await request(app.getHttpServer())
         .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
-        .expect(200);
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
 
-      expect(res.body).toMatchObject({
-        imported: 0,
-        errors: expect.arrayContaining([
-          expect.stringContaining('userId query parameter is required'),
-        ]),
-      });
+      expect(res.body.message).toContain(
+        'categoryId query parameter is required',
+      );
     });
 
     it('imports transactions and returns the count', async () => {
@@ -124,17 +127,71 @@ describe('AbnAmro (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}&categoryId=${categoryId}`,
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
         )
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toMatchObject({ imported: 2, errors: [] });
+      expect(res.body).toMatchObject({ imported: 2, skipped: 0 });
 
       const saved = await app.get(TransactionsService).findAllForUser(userId);
       expect(saved).toHaveLength(2);
     });
 
-    it('assigns userId and categoryId when provided as query params', async () => {
+    it('skips duplicate transactions on a second sync', async () => {
+      const mockTransactions = [
+        {
+          transactionId: 'tx-001',
+          bookDate: '2024-01-15',
+          amount: -25.5,
+          currencyCode: 'EUR',
+          description: 'Coffee shop',
+          counterPartyAccountNumber: 'NL99CAFE0000000001',
+          counterPartyName: 'Koffie & Zo',
+          transactionType: 'DEBIT',
+          mutationCode: 'GM',
+        },
+      ];
+
+      const mockResponse = of({
+        data: {
+          accountNumber: ACCOUNT_NUMBER,
+          nextPageKey: null,
+          transactions: mockTransactions,
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any,
+      });
+
+      jest.spyOn(httpService, 'get').mockReturnValueOnce(mockResponse);
+
+      // First sync: import the transaction.
+      await request(app.getHttpServer())
+        .post(
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      jest.spyOn(httpService, 'get').mockReturnValueOnce(mockResponse);
+
+      // Second sync: same transaction must be skipped.
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body).toMatchObject({ imported: 0, skipped: 1 });
+
+      const saved = await app.get(TransactionsService).findAllForUser(userId);
+      expect(saved).toHaveLength(1);
+    });
+
+    it('assigns the authenticated user and the given categoryId to imported transactions', async () => {
       jest.spyOn(httpService, 'get').mockReturnValueOnce(
         of({
           data: {
@@ -161,13 +218,12 @@ describe('AbnAmro (e2e)', () => {
         }),
       );
 
-      const res = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}&categoryId=${categoryId}`,
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
         )
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
-
-      expect(res.body).toMatchObject({ imported: 1, errors: [] });
 
       const saved = await app.get(TransactionsService).findAllForUser(userId);
       expect(saved[0].bankAccount.userId).toBe(userId);
@@ -231,12 +287,44 @@ describe('AbnAmro (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&userId=${userId}&categoryId=${categoryId}`,
+          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
         )
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toMatchObject({ imported: 2, errors: [] });
+      expect(res.body).toMatchObject({ imported: 2, skipped: 0 });
       expect(mockGet).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('GET /api/v1/abn-amro/authorization-url', () => {
+    it('returns 401 when no JWT is provided', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/abn-amro/authorization-url')
+        .expect(401);
+    });
+
+    it('returns 400 when accountNumber query parameter is missing', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/abn-amro/authorization-url')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+
+      expect(res.body.message).toContain(
+        'accountNumber query parameter is required',
+      );
+    });
+
+    it('returns an authorization URL for the authenticated user', async () => {
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/v1/abn-amro/authorization-url?accountNumber=${ACCOUNT_NUMBER}`,
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body.authorizationUrl).toContain('response_type=code');
+      expect(res.body.authorizationUrl).toContain('state=');
     });
   });
 });

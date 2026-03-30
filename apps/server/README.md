@@ -37,24 +37,25 @@ Copy the example env file and fill in your values:
 cp .env.example .env
 ```
 
-| Variable                | Description                                                                                                                    |
-|-------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| `PORT`                  | HTTP port                                                                                                                      |
-| `DB_HOST`               | PostgreSQL host                                                                                                                |
-| `DB_PORT`               | PostgreSQL port                                                                                                                |
-| `DB_USERNAME`           | PostgreSQL user                                                                                                                |
-| `DB_PASSWORD`           | PostgreSQL password                                                                                                            |
-| `DB_DATABASE`           | Database name                                                                                                                  |
-| `ABN_AMRO_API_URL`      | ABN AMRO API base URL                                                                                                          |
-| `ABN_AMRO_AUTH_URL`     | Authorization endpoint — browser is redirected here to grant consent                                                           |
-| `ABN_AMRO_TOKEN_URL`    | Token endpoint — used to exchange the authorization code for an access token                                                   |
-| `ABN_AMRO_CLIENT_ID`    | Your ABN AMRO client ID. Use `TPP_test` for sandbox testing                                                                    |
-| `ABN_AMRO_API_KEY`      | API key sent on every request (`API-Key` header) — [see ABN AMRO setup](#1-register-on-the-developer-portal)                   |
-| `ABN_AMRO_CERT_PATH`    | Path to your mTLS certificate (PEM). Optional in sandbox, required in production                                               |
-| `ABN_AMRO_KEY_PATH`     | Path to your mTLS private key (PEM). Optional in sandbox, required in production                                               |
-| `ABN_AMRO_REDIRECT_URI` | OAuth2 redirect URI. The sandbox hardcodes `https://localhost/auth` and it cannot be changed in the developer portal           |
-| `ABN_AMRO_SCOPE`        | OAuth2 scopes to request                                                                                                       |
-| `ABN_AMRO_ACCESS_TOKEN` | Pre-configured access token — skips the OAuth2 flow if set. Obtain one by completing the flow and copying it from the response |
+| Variable                | Description                                                                                                          |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `PORT`                  | HTTP port                                                                                                            |
+| `JWT_SECRET`            | Secret used to sign JWT tokens                                                                                       |
+| `ENCRYPTION_KEY`        | 64-character hex string (32 bytes) used to encrypt sensitive columns at rest.                                        |
+| `DB_HOST`               | PostgreSQL host                                                                                                      |
+| `DB_PORT`               | PostgreSQL port                                                                                                      |
+| `DB_USERNAME`           | PostgreSQL user                                                                                                      |
+| `DB_PASSWORD`           | PostgreSQL password                                                                                                  |
+| `DB_DATABASE`           | Database name                                                                                                        |
+| `ABN_AMRO_API_URL`      | ABN AMRO API base URL                                                                                                |
+| `ABN_AMRO_AUTH_URL`     | Authorization endpoint — browser is redirected here to grant consent                                                 |
+| `ABN_AMRO_TOKEN_URL`    | Token endpoint — used to exchange the authorization code for an access token                                         |
+| `ABN_AMRO_CLIENT_ID`    | Your ABN AMRO client ID. Use `TPP_test` for sandbox testing                                                          |
+| `ABN_AMRO_API_KEY`      | API key sent on every request (`API-Key` header) — [see ABN AMRO setup](#1-register-on-the-developer-portal)         |
+| `ABN_AMRO_CERT_PATH`    | Path to your mTLS certificate (PEM). Optional in sandbox, required in production                                     |
+| `ABN_AMRO_KEY_PATH`     | Path to your mTLS private key (PEM). Optional in sandbox, required in production                                     |
+| `ABN_AMRO_REDIRECT_URI` | OAuth2 redirect URI. The sandbox hardcodes `https://localhost/auth` and it cannot be changed in the developer portal |
+| `ABN_AMRO_SCOPE`        | OAuth2 scopes to request                                                                                             |
 
 ## Test User Credentials
 
@@ -154,23 +155,16 @@ The ABN AMRO sandbox hardcodes the OAuth2 redirect URI to `https://localhost/aut
 sandbox applications — the developer portal does not allow registering a different URI for sandbox apps.
 
 Nginx listens on port `443` and proxies to the server, so `https://localhost/auth` is handled directly by the `/auth`
-endpoint. The response contains the access token:
+endpoint. On success the server stores the token in the database (encrypted) and returns a confirmation:
 
 ```json
 {
-  "message": "Authorization successful. You may now sync transactions.",
-  "accessToken": "eyJ..."
+  "message": "Authorization successful. You may now sync transactions."
 }
 ```
 
-#### Persisting the access token across restarts
-
-The token is stored in memory and lost when the server restarts. To avoid repeating the OAuth2 flow every time, copy the
-`accessToken` from the callback response into your `.env` file:
-
-```env
-ABN_AMRO_ACCESS_TOKEN=eyJ...
-```
+The token is now persisted in the database and survives server restarts, so the OAuth2 flow only needs to be completed
+once per bank account.
 
 ### Setup
 

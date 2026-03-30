@@ -6,7 +6,7 @@ export const SEED_USER = {
 } as const;
 
 export const SEED_BANK_ACCOUNT = {
-  accountNumber: 'NL91ABNA0417164300',
+  accountNumber: 'NL58ABNA9999142181',
   accountName: 'Checking',
 } as const;
 

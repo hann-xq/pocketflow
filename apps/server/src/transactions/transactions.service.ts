@@ -104,4 +104,20 @@ export class TransactionsService {
       this.transactionsRepository.create(transactions),
     );
   }
+
+  async findExistingExternalIds(
+    bankAccountId: string,
+    externalIds: string[],
+  ): Promise<Set<string>> {
+    if (externalIds.length === 0) {
+      return new Set();
+    }
+
+    const existing = await this.transactionsRepository.find({
+      where: { bankAccountId, externalId: In(externalIds) },
+      select: ['externalId'],
+    });
+
+    return new Set(existing.map((t) => t.externalId!));
+  }
 }
