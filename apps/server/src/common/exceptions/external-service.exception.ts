@@ -1,8 +1,8 @@
-import { HttpStatus } from '@nestjs/common';
+import { DomainErrorCode } from './domain-error-code.enum';
 import { DomainException } from './domain.exception';
 
 export class ExternalServiceException extends DomainException {
   constructor(message: string) {
-    super(message, HttpStatus.BAD_GATEWAY);
+    super(message, DomainErrorCode.EXTERNAL_SERVICE);
   }
 }
