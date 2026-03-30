@@ -8,6 +8,7 @@ import { TagsModule } from './tags/tags.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { AbnAmroModule } from './abn-amro/abn-amro.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
+import { EncryptionModule } from './encryption/encryption.module';
 import { ValidatorsModule } from './validators/validators.module';
 import { SeederModule } from './seeds/seeder.module';
 
@@ -31,6 +32,7 @@ import { SeederModule } from './seeds/seeder.module';
         synchronize: true,
       }),
     }),
+    EncryptionModule,
     AuthModule,
     UsersModule,
     CategoriesModule,

@@ -6,15 +6,29 @@ import {
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
 } from 'typeorm';
 import { Category } from '../../categories/entities/category.entity';
 import { Tag } from '../../tags/entities/tag.entity';
 import { BankAccount } from '../../bank-accounts/entities/bank-account.entity';
+import { Exclude } from 'class-transformer';
 
 @Entity('transactions')
+@Unique(['bankAccountId', 'externalId'])
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /**
+   * Optional identifier from the originating bank system.
+   *
+   * Combined with bankAccountId in a unique constraint to prevent duplicates.
+   *
+   * Null for manually created transactions.
+   */
+  @Column({ nullable: true, type: 'varchar' })
+  @Exclude()
+  externalId: string | null;
 
   @Column({ nullable: true, type: 'varchar' })
   description: string | null;
@@ -25,10 +39,10 @@ export class Transaction {
   @Column({ type: 'date' })
   date: string;
 
-  @Column({ name: 'counterparty_name', nullable: true, type: 'varchar' })
+  @Column({ nullable: true, type: 'varchar' })
   counterpartyName: string | null;
 
-  @Column({ name: 'counterparty_account', nullable: true, type: 'varchar' })
+  @Column({ nullable: true, type: 'varchar' })
   counterpartyAccount: string | null;
 
   @ManyToOne(() => Category, (category) => category.transactions, {
@@ -54,7 +68,6 @@ export class Transaction {
 
   @ManyToMany(() => Tag, (tag) => tag.transactions, { cascade: true })
   @JoinTable({
-    name: 'transaction_tags',
     joinColumn: { name: 'transaction_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
   })

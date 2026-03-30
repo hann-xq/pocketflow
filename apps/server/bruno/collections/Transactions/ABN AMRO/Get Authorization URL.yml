@@ -1,0 +1,19 @@
+info:
+  name: Get Authorization URL
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{API}}/abn-amro/authorization-url?accountNumber=NL58ABNA9999142181"
+  params:
+    - name: accountNumber
+      value: NL58ABNA9999142181
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

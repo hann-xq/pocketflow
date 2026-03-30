@@ -3,11 +3,12 @@ export interface AbnAmroTransaction {
   bookDate: string;
   amount: number;
   currencyCode: string;
-  description: string;
+  descriptionLines: string[];
   counterPartyAccountNumber: string;
   counterPartyName: string;
   transactionType: string;
   mutationCode: string;
+  balanceAfterMutation: number;
 }
 
 export interface AbnAmroTransactionsResponse {
