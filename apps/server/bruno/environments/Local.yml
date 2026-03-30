@@ -7,6 +7,4 @@ variables:
   - secret: true
     name: test_user
   - secret: true
-    name: test_category
-  - secret: true
     name: access_token

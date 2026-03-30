@@ -5,13 +5,10 @@ info:
 
 http:
   method: POST
-  url: "{{API}}/abn-amro/sync?accountNumber=NL58ABNA9999142181&categoryId={{test_category}}"
+  url: "{{API}}/abn-amro/sync?accountNumber=NL58ABNA9999142181"
   params:
     - name: accountNumber
       value: NL58ABNA9999142181
-      type: query
-    - name: categoryId
-      value: "{{test_category}}"
       type: query
   auth: inherit
 

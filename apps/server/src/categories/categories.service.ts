@@ -10,6 +10,8 @@ import { SEED_CATEGORIES } from '../seeds/seed-data';
 
 @Injectable()
 export class CategoriesService implements ISeeder {
+  public static readonly UNCATEGORIZED_SLUG = 'uncategorized';
+
   constructor(
     @InjectRepository(Category)
     private readonly categoriesRepository: Repository<Category>,
@@ -26,8 +28,12 @@ export class CategoriesService implements ISeeder {
       );
     }
 
-    const category = this.categoriesRepository.create(createCategoryDto);
-    return this.categoriesRepository.save(category);
+    return this.categoriesRepository.save(
+      this.categoriesRepository.create({
+        ...createCategoryDto,
+        slug: null,
+      }),
+    );
   }
 
   findAll(): Promise<Category[]> {
@@ -36,6 +42,10 @@ export class CategoriesService implements ISeeder {
 
   findOne(id: string): Promise<Category> {
     return this.categoriesRepository.findOneByOrFail({ id });
+  }
+
+  findBySlug(slug: string): Promise<Category> {
+    return this.categoriesRepository.findOneByOrFail({ slug });
   }
 
   async update(
@@ -64,10 +74,11 @@ export class CategoriesService implements ISeeder {
   }
 
   async seed(): Promise<void> {
-    if ((await this.categoriesRepository.count()) > 0) return;
-
-    await this.categoriesRepository.save(
+    // Upsert by slug so that required system categories (e.g., uncategorized)
+    // are always present, even when the database already has other categories.
+    await this.categoriesRepository.upsert(
       SEED_CATEGORIES.map((c) => this.categoriesRepository.create(c)),
+      ['slug'],
     );
   }
 }

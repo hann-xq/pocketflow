@@ -11,7 +11,6 @@ import { UsersModule } from '../src/users/users.module';
 import { CategoriesModule } from '../src/categories/categories.module';
 import { SeederService } from '../src/seeds/seeder.service';
 import { UsersService } from '../src/users/users.service';
-import { CategoriesService } from '../src/categories/categories.service';
 import { TransactionsService } from '../src/transactions/transactions.service';
 import { SEED_USER } from '../src/seeds/seed-data';
 
@@ -25,7 +24,6 @@ describe('AbnAmro (e2e)', () => {
 
   let token: string;
   let userId: string;
-  let categoryId: string;
 
   beforeAll(async () => {
     app = await createTestApp([AbnAmroModule, UsersModule, CategoriesModule]);
@@ -53,9 +51,6 @@ describe('AbnAmro (e2e)', () => {
     const users = await app.get(UsersService).findAll();
     userId = users.find((u) => u.email === SEED_USER.email)!.id;
     token = await getToken(app);
-
-    const categories = await app.get(CategoriesService).findAll();
-    categoryId = categories[0].id;
   });
 
   describe('POST /api/v1/abn-amro/sync', () => {
@@ -73,17 +68,6 @@ describe('AbnAmro (e2e)', () => {
 
       expect(res.body.message).toContain(
         'accountNumber query parameter is required',
-      );
-    });
-
-    it('returns 400 when categoryId query parameter is missing', async () => {
-      const res = await request(app.getHttpServer())
-        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
-        .set('Authorization', `Bearer ${token}`)
-        .expect(400);
-
-      expect(res.body.message).toContain(
-        'categoryId query parameter is required',
       );
     });
 
@@ -126,9 +110,7 @@ describe('AbnAmro (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
-        )
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
@@ -169,9 +151,7 @@ describe('AbnAmro (e2e)', () => {
 
       // First sync: import the transaction.
       await request(app.getHttpServer())
-        .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
-        )
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
@@ -179,9 +159,7 @@ describe('AbnAmro (e2e)', () => {
 
       // Second sync: same transaction must be skipped.
       const res = await request(app.getHttpServer())
-        .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
-        )
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
@@ -191,7 +169,7 @@ describe('AbnAmro (e2e)', () => {
       expect(saved).toHaveLength(1);
     });
 
-    it('assigns the authenticated user and the given categoryId to imported transactions', async () => {
+    it("assigns imported transactions to the authenticated user's bank account", async () => {
       jest.spyOn(httpService, 'get').mockReturnValueOnce(
         of({
           data: {
@@ -219,15 +197,12 @@ describe('AbnAmro (e2e)', () => {
       );
 
       await request(app.getHttpServer())
-        .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
-        )
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       const saved = await app.get(TransactionsService).findAllForUser(userId);
       expect(saved[0].bankAccount.userId).toBe(userId);
-      expect(saved[0].categoryId).toBe(categoryId);
     });
 
     it('paginates through multiple pages of transactions', async () => {
@@ -286,9 +261,7 @@ describe('AbnAmro (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post(
-          `/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}&categoryId=${categoryId}`,
-        )
+        .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 

@@ -10,6 +10,14 @@ export class CategoryResponseDto {
   @ApiProperty({ example: 'Groceries' })
   name: string;
 
+  @ApiProperty({
+    nullable: true,
+    example: 'groceries',
+    description:
+      'Stable lowercase key used to identify the category in code, independent of the display name.',
+  })
+  slug: string | null;
+
   @ApiProperty({ nullable: true, example: 'Weekly grocery shopping' })
   description: string | null;
 }

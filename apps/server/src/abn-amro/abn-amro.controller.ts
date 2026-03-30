@@ -89,12 +89,6 @@ export class AbnAmroController {
     required: true,
     description: 'Dutch IBAN account number to sync',
   })
-  @ApiQuery({
-    name: 'categoryId',
-    required: true,
-    format: 'uuid',
-    description: 'Category to assign to all imported transactions',
-  })
   @ApiOkResponse({ type: AbnAmroSyncResponseDto })
   @ApiUnauthorizedResponse({
     description:
@@ -103,7 +97,6 @@ export class AbnAmroController {
   sync(
     @CurrentUser() user: User,
     @Query('accountNumber') accountNumber?: string,
-    @Query('categoryId') categoryId?: string,
   ) {
     if (!accountNumber) {
       throw new InvalidRequestException(
@@ -111,16 +104,6 @@ export class AbnAmroController {
       );
     }
 
-    if (!categoryId) {
-      throw new InvalidRequestException(
-        'categoryId query parameter is required',
-      );
-    }
-
-    return this.abnAmroService.syncTransactions(
-      accountNumber,
-      user.id,
-      categoryId,
-    );
+    return this.abnAmroService.syncTransactions(accountNumber, user.id);
   }
 }
