@@ -1,0 +1,7 @@
+info:
+  name: ABN AMRO
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit
