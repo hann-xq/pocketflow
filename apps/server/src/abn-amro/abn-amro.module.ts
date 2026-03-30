@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AbnAmroService } from './abn-amro.service';
+import { AbnAmroTokenService } from './abn-amro-token.service';
+import { AbnAmroApiClient } from './abn-amro-api.client';
 import { AbnAmroController } from './abn-amro.controller';
 import { AbnAmroAuthController } from './abn-amro-auth.controller';
 import { BankConnection } from './entities/bank-connection.entity';
@@ -21,6 +23,6 @@ import { CategoriesModule } from '../categories/categories.module';
     CategoriesModule,
   ],
   controllers: [AbnAmroController, AbnAmroAuthController],
-  providers: [AbnAmroService],
+  providers: [AbnAmroService, AbnAmroTokenService, AbnAmroApiClient],
 })
 export class AbnAmroModule {}

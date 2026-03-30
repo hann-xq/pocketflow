@@ -3,10 +3,11 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { createTestApp, getToken } from './test-utils';
 import { AbnAmroModule } from '../src/abn-amro/abn-amro.module';
-import { AbnAmroService } from '../src/abn-amro/abn-amro.service';
+import { AbnAmroTokenService } from '../src/abn-amro/abn-amro-token.service';
+import { BankConnection } from '../src/abn-amro/entities/bank-connection.entity';
 import { UsersModule } from '../src/users/users.module';
 import { CategoriesModule } from '../src/categories/categories.module';
 import { SeederService } from '../src/seeds/seeder.service';
@@ -20,7 +21,8 @@ describe('AbnAmro (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpService: HttpService;
-  let abnAmroService: AbnAmroService;
+
+  let abnAmroTokenService: AbnAmroTokenService;
 
   let token: string;
   let userId: string;
@@ -30,7 +32,7 @@ describe('AbnAmro (e2e)', () => {
 
     dataSource = app.get(DataSource);
     httpService = app.get(HttpService);
-    abnAmroService = app.get(AbnAmroService);
+    abnAmroTokenService = app.get(AbnAmroTokenService);
   });
 
   afterAll(async () => {
@@ -45,8 +47,14 @@ describe('AbnAmro (e2e)', () => {
 
     jest.restoreAllMocks();
     jest
-      .spyOn(abnAmroService as any, 'getTokenForBankAccount')
-      .mockResolvedValue('mock-token');
+      .spyOn(abnAmroTokenService, 'getConnectionForBankAccount')
+      .mockResolvedValue({
+        accessToken: 'mock-token',
+        refreshToken: null,
+        bankAccountId: '',
+        id: '',
+        expiresAt: new Date(Date.now() + 3600000),
+      } as BankConnection);
 
     const users = await app.get(UsersService).findAll();
     userId = users.find((u) => u.email === SEED_USER.email)!.id;
@@ -267,6 +275,127 @@ describe('AbnAmro (e2e)', () => {
 
       expect(res.body).toMatchObject({ imported: 2, skipped: 0 });
       expect(mockGet).toHaveBeenCalledTimes(2);
+    });
+
+    describe('token refresh', () => {
+      const connectionWithRefreshToken = {
+        accessToken: 'expired-token',
+        refreshToken: 'valid-refresh-token',
+        bankAccountId: '',
+        id: '',
+        expiresAt: new Date(Date.now() - 1000),
+      } as BankConnection;
+
+      function axiosError(status: number) {
+        return Object.assign(new Error('Request failed'), {
+          isAxiosError: true,
+          response: {
+            status,
+            data: {},
+            headers: {},
+            config: {},
+            statusText: '',
+          },
+        });
+      }
+
+      it('retries with the refreshed token and imports transactions', async () => {
+        jest
+          .spyOn(abnAmroTokenService, 'getConnectionForBankAccount')
+          .mockResolvedValue(connectionWithRefreshToken);
+        jest
+          .spyOn(abnAmroTokenService, 'refreshAccessToken')
+          .mockResolvedValue('new-access-token');
+
+        const mockGet = jest
+          .spyOn(httpService, 'get')
+          .mockReturnValueOnce(throwError(() => axiosError(401)))
+          .mockReturnValueOnce(
+            of({
+              data: {
+                accountNumber: ACCOUNT_NUMBER,
+                nextPageKey: null,
+                transactions: [
+                  {
+                    transactionId: 'tx-r1',
+                    bookDate: '2024-03-01',
+                    amount: -15,
+                    currencyCode: 'EUR',
+                    description: 'Refreshed',
+                    counterPartyAccountNumber: '',
+                    counterPartyName: '',
+                    transactionType: 'DEBIT',
+                    mutationCode: 'GM',
+                  },
+                ],
+              },
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              config: {} as any,
+            }),
+          );
+
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200);
+
+        expect(res.body).toMatchObject({ imported: 1, skipped: 0 });
+        // Verify the retry used the new access token, not the expired one.
+        expect(mockGet).toHaveBeenNthCalledWith(
+          2,
+          expect.stringContaining(ACCOUNT_NUMBER),
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              Authorization: 'Bearer new-access-token',
+            }),
+          }),
+        );
+      });
+
+      it('returns 401 and deletes the connection when the refreshed token is also rejected', async () => {
+        jest
+          .spyOn(abnAmroTokenService, 'getConnectionForBankAccount')
+          .mockResolvedValue(connectionWithRefreshToken);
+        jest
+          .spyOn(abnAmroTokenService, 'refreshAccessToken')
+          .mockResolvedValue('new-access-token');
+
+        const deleteConnectionSpy = jest.spyOn(
+          abnAmroTokenService,
+          'deleteConnection',
+        );
+
+        jest
+          .spyOn(httpService, 'get')
+          .mockReturnValueOnce(throwError(() => axiosError(401)))
+          .mockReturnValueOnce(throwError(() => axiosError(401)));
+
+        await request(app.getHttpServer())
+          .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
+          .set('Authorization', `Bearer ${token}`)
+          .expect(401);
+
+        expect(deleteConnectionSpy).toHaveBeenCalled();
+      });
+
+      it('returns 401 without calling the token endpoint when there is no refresh token', async () => {
+        // The beforeEach mock returns a connection with refreshToken: null,
+        // so refreshAccessToken throws before reaching the token endpoint.
+        jest
+          .spyOn(httpService, 'get')
+          .mockReturnValueOnce(throwError(() => axiosError(401)));
+
+        const postSpy = jest.spyOn(httpService, 'post');
+
+        await request(app.getHttpServer())
+          .post(`/api/v1/abn-amro/sync?accountNumber=${ACCOUNT_NUMBER}`)
+          .set('Authorization', `Bearer ${token}`)
+          .expect(401);
+
+        expect(postSpy).not.toHaveBeenCalled();
+      });
     });
   });
 

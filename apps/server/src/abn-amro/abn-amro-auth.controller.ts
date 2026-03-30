@@ -14,12 +14,12 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { AbnAmroService } from './abn-amro.service';
+import { AbnAmroTokenService } from './abn-amro-token.service';
 
 @ApiTags('ABN AMRO')
 @Controller({ version: VERSION_NEUTRAL })
 export class AbnAmroAuthController {
-  constructor(private readonly abnAmroService: AbnAmroService) {}
+  constructor(private readonly abnAmroTokenService: AbnAmroTokenService) {}
 
   /**
    * Handle the OAuth2 callback from ABN AMRO.
@@ -57,6 +57,6 @@ export class AbnAmroAuthController {
     description: 'Invalid or expired state nonce',
   })
   async callback(@Query('code') code: string, @Query('state') state: string) {
-    await this.abnAmroService.handleCallback(code, state);
+    await this.abnAmroTokenService.handleCallback(code, state);
   }
 }
