@@ -5,13 +5,14 @@ import { DataSource } from 'typeorm';
 import { createTestApp, getToken } from './test-utils';
 import { CategoriesModule } from '../src/categories/categories.module';
 import { CategoriesService } from '../src/categories/categories.service';
+import { CategoryType } from '../src/categories/enums/category-type.enum';
 import { SeederService } from '../src/seeds/seeder.service';
 import { SEED_ADMIN, SEED_CATEGORIES } from '../src/seeds/seed-data';
 
 describe('Categories (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
-  let categoryId: string;
+  let expenseCategoryId: string;
   let token: string;
   let regularToken: string;
 
@@ -31,42 +32,76 @@ describe('Categories (e2e)', () => {
     await app.get(SeederService).run();
 
     const categories = await app.get(CategoriesService).findAll();
-    categoryId = categories.find((c) => c.name === SEED_CATEGORIES[0].name)!.id;
+    expenseCategoryId = categories.find(
+      (c) => c.slug === 'uncategorized' && c.type === CategoryType.EXPENSE,
+    )!.id;
 
     token = await getToken(app, SEED_ADMIN.email, SEED_ADMIN.password);
     regularToken = await getToken(app);
   });
 
   describe('POST /api/v1/categories', () => {
-    it('creates a category and returns 201', async () => {
+    it('creates an expense category and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/categories')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Custom Category', description: 'A custom description' })
+        .send({
+          name: 'Custom Expense',
+          description: 'A custom description',
+          type: CategoryType.EXPENSE,
+        })
         .expect(201);
 
       expect(res.body).toMatchObject({
-        name: 'Custom Category',
+        name: 'Custom Expense',
         description: 'A custom description',
+        type: CategoryType.EXPENSE,
       });
       expect(res.body.id).toBeDefined();
+    });
+
+    it('creates an income category and returns 201', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/categories')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Bonus', type: CategoryType.INCOME })
+        .expect(201);
+
+      expect(res.body).toMatchObject({
+        name: 'Bonus',
+        type: CategoryType.INCOME,
+      });
+    });
+
+    it('allows same name for different types', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/categories')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Other', type: CategoryType.EXPENSE })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/categories')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Other', type: CategoryType.INCOME })
+        .expect(201);
     });
 
     it('creates a category without optional description', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/categories')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'New Category' })
+        .send({ name: 'New Category', type: CategoryType.EXPENSE })
         .expect(201);
 
       expect(res.body.name).toBe('New Category');
     });
 
-    it('returns 409 for duplicate name', async () => {
+    it('returns 409 for duplicate name within the same type', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/categories')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: SEED_CATEGORIES[0].name })
+        .send({ name: SEED_CATEGORIES[0].name, type: CategoryType.EXPENSE })
         .expect(409);
 
       expect(res.body.message).toContain('already exists');
@@ -76,7 +111,23 @@ describe('Categories (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/categories')
         .set('Authorization', `Bearer ${token}`)
-        .send({ description: 'No name here' })
+        .send({ description: 'No name here', type: CategoryType.EXPENSE })
+        .expect(400);
+    });
+
+    it('returns 400 when type is missing', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/categories')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'No Type' })
+        .expect(400);
+    });
+
+    it('returns 400 for an invalid type value', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/categories')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Bad Type', type: 'invalid' })
         .expect(400);
     });
 
@@ -84,7 +135,7 @@ describe('Categories (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/categories')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Valid', color: 'red' })
+        .send({ name: 'Valid', type: CategoryType.EXPENSE, color: 'red' })
         .expect(400);
     });
 
@@ -92,40 +143,48 @@ describe('Categories (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/categories')
         .set('Authorization', `Bearer ${regularToken}`)
-        .send({ name: 'New Category' })
+        .send({ name: 'New Category', type: CategoryType.EXPENSE })
         .expect(403);
     });
 
     it('returns 401 when no token is provided', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/categories')
-        .send({ name: 'New Category' })
+        .send({ name: 'New Category', type: CategoryType.EXPENSE })
         .expect(401);
     });
   });
 
   describe('GET /api/v1/categories', () => {
-    it('returns all categories', async () => {
+    it('returns all categories including both expense and income', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/categories')
         .expect(200);
 
       expect(res.body).toHaveLength(SEED_CATEGORIES.length);
-      expect(res.body.map((c: any) => c.name)).toEqual(
-        expect.arrayContaining(SEED_CATEGORIES.map((c) => c.name)),
-      );
+      expect(res.body.every((c: any) => c.type !== undefined)).toBe(true);
+    });
+
+    it('includes both expense and income types in the response', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/categories')
+        .expect(200);
+
+      const types: string[] = res.body.map((c: any) => c.type);
+      expect(types).toContain(CategoryType.EXPENSE);
+      expect(types).toContain(CategoryType.INCOME);
     });
   });
 
   describe('GET /api/v1/categories/:id', () => {
-    it('returns the category for a valid id', async () => {
+    it('returns the category with its type for a valid id', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/api/v1/categories/${categoryId}`)
+        .get(`/api/v1/categories/${expenseCategoryId}`)
         .expect(200);
 
       expect(res.body).toMatchObject({
         name: SEED_CATEGORIES[0].name,
-        description: SEED_CATEGORIES[0].description,
+        type: CategoryType.EXPENSE,
       });
     });
 
@@ -145,7 +204,7 @@ describe('Categories (e2e)', () => {
   describe('PATCH /api/v1/categories/:id', () => {
     it('updates the category name', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/categories/${categoryId}`)
+        .patch(`/api/v1/categories/${expenseCategoryId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ name: 'NewName' })
         .expect(200);
@@ -155,7 +214,7 @@ describe('Categories (e2e)', () => {
 
     it('updates the description', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/categories/${categoryId}`)
+        .patch(`/api/v1/categories/${expenseCategoryId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ description: 'New desc' })
         .expect(200);
@@ -163,9 +222,27 @@ describe('Categories (e2e)', () => {
       expect(res.body.description).toBe('New desc');
     });
 
+    it('returns 400 when attempting to change the type', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/categories/${expenseCategoryId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ type: CategoryType.INCOME })
+        .expect(400);
+    });
+
+    it('preserves the original type after an update', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/categories/${expenseCategoryId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Renamed' })
+        .expect(200);
+
+      expect(res.body.type).toBe(CategoryType.EXPENSE);
+    });
+
     it('returns 403 for a non-admin user', async () => {
       await request(app.getHttpServer())
-        .patch(`/api/v1/categories/${categoryId}`)
+        .patch(`/api/v1/categories/${expenseCategoryId}`)
         .set('Authorization', `Bearer ${regularToken}`)
         .send({ name: 'Stolen' })
         .expect(403);
@@ -173,7 +250,7 @@ describe('Categories (e2e)', () => {
 
     it('returns 401 when no token is provided', async () => {
       await request(app.getHttpServer())
-        .patch(`/api/v1/categories/${categoryId}`)
+        .patch(`/api/v1/categories/${expenseCategoryId}`)
         .send({ name: 'Stolen' })
         .expect(401);
     });
@@ -190,25 +267,25 @@ describe('Categories (e2e)', () => {
   describe('DELETE /api/v1/categories/:id', () => {
     it('deletes the category and returns 204', async () => {
       await request(app.getHttpServer())
-        .delete(`/api/v1/categories/${categoryId}`)
+        .delete(`/api/v1/categories/${expenseCategoryId}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(204);
 
       await request(app.getHttpServer())
-        .get(`/api/v1/categories/${categoryId}`)
+        .get(`/api/v1/categories/${expenseCategoryId}`)
         .expect(404);
     });
 
     it('returns 403 for a non-admin user', async () => {
       await request(app.getHttpServer())
-        .delete(`/api/v1/categories/${categoryId}`)
+        .delete(`/api/v1/categories/${expenseCategoryId}`)
         .set('Authorization', `Bearer ${regularToken}`)
         .expect(403);
     });
 
     it('returns 401 when no token is provided', async () => {
       await request(app.getHttpServer())
-        .delete(`/api/v1/categories/${categoryId}`)
+        .delete(`/api/v1/categories/${expenseCategoryId}`)
         .expect(401);
     });
 
