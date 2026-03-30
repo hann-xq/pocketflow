@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -15,23 +15,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
 import { api } from "@/lib/api";
-
-type ApiTransaction = {
-  id: string;
-  description: string | null;
-  amount: string;
-  date: string;
-  counterpartyName: string;
-  counterpartyAccount: string;
-  userId: string;
-  category: {
-    id: string;
-    name: string;
-    description: string;
-  } | null;
-  categoryId: string | null;
-  tags: string[];
-};
+import type { ApiTransaction } from "@/lib/types";
 
 type ApiCategory = {
   id: string;
@@ -52,6 +36,15 @@ export default function TransactionDetail() {
 
   const [currentCategory, setCurrentCategory] = useState(transaction.category);
   const [currentAmount, setCurrentAmount] = useState(transaction.amount);
+  const [currentTags, setCurrentTags] = useState(transaction.tags);
+
+  useFocusEffect(
+    useCallback(() => {
+      api.get<ApiTransaction>(`/transactions/${transaction.id}`).then((data) => {
+        setCurrentTags(data.tags);
+      }).catch(() => {});
+    }, [transaction.id])
+  );
 
   const amount = parseFloat(currentAmount);
   const isExpense = amount < 0;
@@ -147,6 +140,42 @@ export default function TransactionDetail() {
             <MaterialCommunityIcons name="pencil-outline" size={22} color="#38BDF8" />
           </TouchableOpacity>
 
+          {/* Tags section */}
+          <View className="px-4 py-2 bg-background border-b border-border mt-2">
+            <Text className="text-sm font-semibold text-tPrimary">Tags</Text>
+          </View>
+
+          {currentTags.length > 0 && (
+            <View className="px-4 py-4 bg-cards border-b border-border">
+              <View className="flex-row flex-wrap gap-2">
+                {currentTags.map((tag) => (
+                  <TouchableOpacity
+                    key={tag.id}
+                    className="bg-accent px-3 py-1 rounded-full"
+                    onPress={() => router.push({ pathname: "/transactions/by-tag", params: { tagId: tag.id, tagName: tag.name } })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View all transactions tagged ${tag.name}`}
+                  >
+                    <Text className="text-primary text-sm font-medium">#{tag.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity
+            className="flex-row items-center px-4 py-4 bg-cards border-b border-border"
+            onPress={() => router.push({ pathname: "/transactions/edit-tags", params: { transactionId: transaction.id } })}
+            accessibilityRole="button"
+            accessibilityLabel="Edit tags"
+          >
+            <View className="w-10 h-10 rounded-full bg-primary items-center justify-center mr-3">
+              <MaterialCommunityIcons name="tag-multiple-outline" size={20} color="#fff" />
+            </View>
+            <Text className="flex-1 text-tPrimary text-base">Edit tags</Text>
+            <MaterialCommunityIcons name="pencil-outline" size={22} color="#38BDF8" />
+          </TouchableOpacity>
+
           {/* Transaction details section */}
           <View className="px-4 py-2 bg-background border-b border-border mt-2">
             <Text className="text-sm font-semibold text-tPrimary">Transaction details</Text>
@@ -167,19 +196,6 @@ export default function TransactionDetail() {
             <View className="px-4 py-4 bg-cards border-b border-border">
               <Text className="text-sm font-semibold text-tPrimary mb-1">Description</Text>
               <Text className="text-tSecondary text-sm">{transaction.description}</Text>
-            </View>
-          )}
-
-          {transaction.tags.length > 0 && (
-            <View className="px-4 py-4 bg-cards border-b border-border">
-              <Text className="text-sm font-semibold text-tPrimary mb-2">Tags</Text>
-              <View className="flex-row flex-wrap gap-2">
-                {transaction.tags.map((tag, i) => (
-                  <View key={i} className="bg-accent px-3 py-1 rounded-full">
-                    <Text className="text-tSecondary text-xs">{tag}</Text>
-                  </View>
-                ))}
-              </View>
             </View>
           )}
 

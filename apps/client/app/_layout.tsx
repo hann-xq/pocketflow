@@ -117,6 +117,14 @@ function AppContent() {
         name="transactions/create"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="transactions/edit-tags"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="transactions/by-tag"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }
