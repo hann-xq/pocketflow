@@ -1,33 +1,20 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useRef } from "react";
 import {
+  Alert,
   SectionList,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import ReanimatedSwipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-
-type ApiTransaction = {
-  id: string;
-  description: string | null;
-  amount: string;
-  date: string;
-  counterpartyName: string;
-  counterpartyAccount: string;
-  userId: string;
-  category: {
-    id: string;
-    name: string;
-    description: string;
-  } | null;
-  categoryId: string | null;
-  tags: string[];
-};
+import type { ApiTransaction } from "@/lib/types";
 
 type Section = { title: string; data: ApiTransaction[] };
 
@@ -51,24 +38,50 @@ function parseAmount(amount: string): number {
   return parseFloat(amount);
 }
 
-export default function Transactions() {
-  const { userId } = useAuth();
-  const { data: transactions = [], isLoading, error } = useQuery({
-    queryKey: ["transactions", userId],
-    queryFn: () => api.get<ApiTransaction[]>(`/users/${userId}/transactions`),
-    enabled: !!userId,
-  });
+function TransactionItem({
+  item,
+  onDelete,
+}: {
+  item: ApiTransaction;
+  onDelete: (id: string) => void;
+}) {
+  const swipeableRef = useRef<SwipeableMethods>(null);
+  const amount = parseAmount(item.amount);
+  const isExpense = amount < 0;
+  const displayTitle = item.counterpartyName || item.description || "Unknown";
 
-  const sections = groupByDate(transactions);
+  const renderRightActions = () => (
+    <View className="bg-red-500 justify-center items-center w-20">
+      <MaterialCommunityIcons name="trash-can-outline" size={24} color="#fff" />
+    </View>
+  );
 
-  const balance = transactions.reduce((sum: number, t: ApiTransaction) => sum + parseAmount(t.amount), 0);
+  const handleSwipeOpen = () => {
+    Alert.alert(
+      "Delete Transaction",
+      `Are you sure you want to delete "${displayTitle}"?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => swipeableRef.current?.close(),
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => onDelete(item.id),
+        },
+      ]
+    );
+  };
 
-  const renderItem = ({ item }: { item: ApiTransaction }) => {
-    const amount = parseAmount(item.amount);
-    const isExpense = amount < 0;
-    const displayTitle = item.counterpartyName || item.description || "Unknown";
-
-    return (
+  return (
+    <ReanimatedSwipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      onSwipeableOpen={handleSwipeOpen}
+      rightThreshold={40}
+    >
       <TouchableOpacity
         onPress={() => router.push({ pathname: "/transactions/[id]", params: { id: item.id, data: JSON.stringify(item) } })}
         accessibilityRole="button"
@@ -96,8 +109,25 @@ export default function Transactions() {
           </Text>
         </View>
       </TouchableOpacity>
-    );
-  };
+    </ReanimatedSwipeable>
+  );
+}
+
+export default function Transactions() {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: transactions = [], isLoading, error } = useQuery({
+    queryKey: ["transactions"],
+    queryFn: () => api.get<ApiTransaction[]>(`/users/${userId}/transactions`),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/transactions/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+  });
+
+  const sections = groupByDate(transactions);
+  const balance = transactions.reduce((sum, t) => sum + parseAmount(t.amount), 0);
 
   const renderSectionHeader = ({ section }: { section: Section }) => (
     <View
@@ -156,10 +186,22 @@ export default function Transactions() {
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          renderItem={renderItem}
+          renderItem={({ item }) => (
+            <TransactionItem item={item} onDelete={(id) => deleteMutation.mutate(id)} />
+          )}
           renderSectionHeader={renderSectionHeader}
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={{ paddingBottom: 96 }}
         />
+
+        {/* FAB */}
+        <TouchableOpacity
+          className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-primary items-center justify-center shadow-lg"
+          onPress={() => router.push("/transactions/create")}
+          accessibilityRole="button"
+          accessibilityLabel="Add new transaction"
+        >
+          <MaterialCommunityIcons name="plus" size={28} color="#fff" />
+        </TouchableOpacity>
       </SafeAreaView>
     </SafeAreaProvider>
   );

@@ -113,6 +113,10 @@ function AppContent() {
         name="transactions/[id]"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="transactions/create"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }
