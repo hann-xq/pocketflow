@@ -19,13 +19,17 @@ import { User } from '../users/entities/user.entity';
 import { InvalidRequestException } from '../common/exceptions/invalid-request.exception';
 import { Serialize } from '../common/interceptors/serialize.interceptor';
 import { AbnAmroService } from './abn-amro.service';
+import { AbnAmroTokenService } from './abn-amro-token.service';
 import { AbnAmroAuthorizationUrlResponseDto } from './dto/abn-amro-authorization-url-response.dto';
 import { AbnAmroSyncResponseDto } from './dto/abn-amro-sync-response.dto';
 
 @ApiTags('ABN AMRO')
 @Controller('abn-amro')
 export class AbnAmroController {
-  constructor(private readonly abnAmroService: AbnAmroService) {}
+  constructor(
+    private readonly abnAmroService: AbnAmroService,
+    private readonly abnAmroTokenService: AbnAmroTokenService,
+  ) {}
 
   /**
    * Return the ABN AMRO OAuth2 authorization URL for the authenticated user.
@@ -61,7 +65,7 @@ export class AbnAmroController {
     }
 
     return {
-      authorizationUrl: await this.abnAmroService.getAuthorizationUrl(
+      authorizationUrl: await this.abnAmroTokenService.getAuthorizationUrl(
         user.id,
         accountNumber,
       ),
