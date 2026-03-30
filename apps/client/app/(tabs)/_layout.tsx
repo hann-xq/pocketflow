@@ -11,7 +11,7 @@ export default function Index() {
           title: 'Home',
           headerShown: false,
           tabBarAccessibilityLabel: 'Home tab',
-          tabBarIcon: ({ }) => (
+          tabBarIcon: () => (
             <MaterialCommunityIcons name="home" importantForAccessibility="no" accessibilityElementsHidden={true} />
           ),
         }}
@@ -22,7 +22,7 @@ export default function Index() {
           title: 'Insights',
           headerShown: false,
           tabBarAccessibilityLabel: 'Insights tab',
-          tabBarIcon: ({ }) => (
+          tabBarIcon: () => (
             <FontAwesome name="pie-chart" importantForAccessibility="no" accessibilityElementsHidden={true} />
           ),
         }}
@@ -33,7 +33,7 @@ export default function Index() {
           title: 'Transactions',
           headerShown: false,
           tabBarAccessibilityLabel: 'Transactions tab',
-          tabBarIcon: ({ }) => (
+          tabBarIcon: () => (
             <FontAwesome name="list" importantForAccessibility="no" accessibilityElementsHidden={true} />
           ),
         }}
@@ -44,7 +44,7 @@ export default function Index() {
           title: 'Profile',
           headerShown: false,
           tabBarAccessibilityLabel: 'Profile tab',
-          tabBarIcon: ({ }) => (
+          tabBarIcon: () => (
             <MaterialCommunityIcons name="account" importantForAccessibility="no" accessibilityElementsHidden={true} />
           ),
         }}

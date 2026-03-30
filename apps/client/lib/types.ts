@@ -1,3 +1,8 @@
+export type ApiTag = {
+  id: string;
+  name: string;
+};
+
 export type ApiTransaction = {
   id: string;
   description: string | null;
@@ -12,7 +17,7 @@ export type ApiTransaction = {
     description: string;
   } | null;
   categoryId: string | null;
-  tags: string[];
+  tags: ApiTag[];
 };
 
 export type ApiCategory = {
