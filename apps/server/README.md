@@ -57,12 +57,30 @@ cp .env.example .env
 | `ABN_AMRO_REDIRECT_URI` | OAuth2 redirect URI. The sandbox hardcodes `https://localhost/auth` and it cannot be changed in the developer portal |
 | `ABN_AMRO_SCOPE`        | OAuth2 scopes to request                                                                                             |
 
+## Administration
+
+A user is considered an administrator when their `isAdmin` flag is `true`. This flag is included in the JWT payload
+and is checked by the `AdminGuard`.
+
+The `isAdmin` field is intentionally absent from `POST /users` and `PATCH /users/{id}` — it cannot be set or changed
+through the API. The only way to grant administrator access is directly in the database or via the seeder.
+
+### Decorators
+
+| Decorator      | Guard(s) applied             | HTTP response on failure        |
+|----------------|------------------------------|---------------------------------|
+| `@Auth()`      | `JwtAuthGuard`               | 401                             |
+| `@AdminOnly()` | `JwtAuthGuard`, `AdminGuard` | 401 (no token), 403 (non-admin) |
+
 ## Test User Credentials
 
-| Field    | Value              |
-|----------|--------------------|
-| Email    | `test@example.com` |
-| Password | `password123`      |
+Two users are seeded by default.
+
+| Field    | Regular user       | Administrator       |
+|----------|--------------------|---------------------|
+| Email    | `test@example.com` | `admin@example.com` |
+| Password | `password123`      | `password123`       |
+| Admin    | `false`            | `true`              |
 
 ## Seeding
 

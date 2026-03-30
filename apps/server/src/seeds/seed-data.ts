@@ -5,6 +5,13 @@ export const SEED_USER = {
   lastName: 'User',
 } as const;
 
+export const SEED_ADMIN = {
+  email: 'admin@example.com',
+  password: 'password123',
+  firstName: 'Admin',
+  lastName: 'User',
+} as const;
+
 export const SEED_BANK_ACCOUNT = {
   accountNumber: 'NL58ABNA9999142181',
   accountName: 'Checking',

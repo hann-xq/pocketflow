@@ -23,6 +23,7 @@ export class AuthService {
       sub: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
+      isAdmin: user.isAdmin,
     };
 
     return { accessToken: this.jwtService.sign(payload) };
