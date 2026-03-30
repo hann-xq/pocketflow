@@ -14,6 +14,7 @@ import { NotAuthorizedException } from '../common/exceptions/not-authorized.exce
 import { TransactionsService } from '../transactions/transactions.service';
 import { Transaction } from '../transactions/entities/transaction.entity';
 import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
+import { CategoriesService } from '../categories/categories.service';
 import { BankConnection } from './entities/bank-connection.entity';
 import { AbnAmroTokenResponse } from './dto/abn-amro-token.dto';
 import {
@@ -58,6 +59,7 @@ export class AbnAmroService {
     configService: ConfigService,
     private readonly transactionsService: TransactionsService,
     private readonly bankAccountsService: BankAccountsService,
+    private readonly categoriesService: CategoriesService,
     @InjectRepository(BankConnection)
     private readonly tokenRepository: Repository<BankConnection>,
   ) {
@@ -174,7 +176,6 @@ export class AbnAmroService {
   async syncTransactions(
     accountNumber: string,
     userId: string,
-    categoryId: string,
   ): Promise<{ imported: number; skipped: number }> {
     const bankAccount =
       await this.bankAccountsService.findOrCreateByAccountNumber(
@@ -183,6 +184,9 @@ export class AbnAmroService {
       );
 
     const accessToken = await this.getTokenForBankAccount(bankAccount.id);
+    const category = await this.categoriesService.findBySlug(
+      CategoriesService.UNCATEGORIZED_SLUG,
+    );
 
     this.logger.log(`Fetching transactions for account ${accountNumber}...`);
     const abnTransactions = await this.fetchTransactions(
@@ -192,7 +196,7 @@ export class AbnAmroService {
     this.logger.log(`Received ${abnTransactions.length} transactions from API`);
 
     const entities = abnTransactions.map((t) =>
-      this.mapToEntity(t, accountNumber, bankAccount.id, categoryId),
+      this.mapToEntity(t, accountNumber, bankAccount.id, category.id),
     );
 
     const seen = await this.transactionsService.findExistingExternalIds(

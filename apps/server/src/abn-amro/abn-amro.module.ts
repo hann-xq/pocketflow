@@ -7,6 +7,7 @@ import { AbnAmroAuthController } from './abn-amro-auth.controller';
 import { BankConnection } from './entities/bank-connection.entity';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { BankAccountsModule } from '../bank-accounts/bank-accounts.module';
+import { CategoriesModule } from '../categories/categories.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { BankAccountsModule } from '../bank-accounts/bank-accounts.module';
     TypeOrmModule.forFeature([BankConnection]),
     TransactionsModule,
     BankAccountsModule,
+    CategoriesModule,
   ],
   controllers: [AbnAmroController, AbnAmroAuthController],
   providers: [AbnAmroService],
