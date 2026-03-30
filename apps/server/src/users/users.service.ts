@@ -1,13 +1,14 @@
+import * as bcrypt from 'bcrypt';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { EntityConflictException } from '../common/exceptions/conflict.exception';
+import { InvalidRequestException } from '../common/exceptions/invalid-request.exception';
 import { ISeeder } from '../seeds/seeder';
-import { SEED_USER } from '../seeds/seed-data';
+import { SEED_ADMIN, SEED_USER } from '../seeds/seed-data';
 
 @Injectable()
 export class UsersService implements ISeeder {
@@ -83,6 +84,13 @@ export class UsersService implements ISeeder {
 
   async remove(id: string): Promise<void> {
     const user = await this.findOne(id);
+
+    if (user.isAdmin) {
+      throw new InvalidRequestException(
+        'Administrator accounts cannot be deleted',
+      );
+    }
+
     await this.usersRepository.remove(user);
   }
 
@@ -93,13 +101,20 @@ export class UsersService implements ISeeder {
   async seed(): Promise<void> {
     if ((await this.usersRepository.count()) > 0) return;
 
-    await this.usersRepository.save(
+    await this.usersRepository.save([
       this.usersRepository.create({
         email: SEED_USER.email,
         firstName: SEED_USER.firstName,
         lastName: SEED_USER.lastName,
         password: await bcrypt.hash(SEED_USER.password, 10),
       }),
-    );
+      this.usersRepository.create({
+        email: SEED_ADMIN.email,
+        firstName: SEED_ADMIN.firstName,
+        lastName: SEED_ADMIN.lastName,
+        password: await bcrypt.hash(SEED_ADMIN.password, 10),
+        isAdmin: true,
+      }),
+    ]);
   }
 }

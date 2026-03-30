@@ -13,7 +13,7 @@ import { UsersService } from '../src/users/users.service';
 import { CategoriesService } from '../src/categories/categories.service';
 import { TagsService } from '../src/tags/tags.service';
 import { BankAccountsService } from '../src/bank-accounts/bank-accounts.service';
-import { SEED_USER } from '../src/seeds/seed-data';
+import { SEED_ADMIN, SEED_USER } from '../src/seeds/seed-data';
 
 describe('Transactions (e2e)', () => {
   let app: INestApplication<App>;
@@ -25,6 +25,7 @@ describe('Transactions (e2e)', () => {
   let tagId: string;
   let bankAccountId: string;
   let token: string;
+  let adminToken: string;
 
   beforeAll(async () => {
     app = await createTestApp([
@@ -62,6 +63,7 @@ describe('Transactions (e2e)', () => {
     bankAccountId = bankAccounts[0].id;
 
     token = await getToken(app);
+    adminToken = await getToken(app, SEED_ADMIN.email, SEED_ADMIN.password);
   });
 
   // Creates a second user with their own bank account and one transaction.
@@ -394,11 +396,14 @@ describe('Transactions (e2e)', () => {
       const created = await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', categoryId });
+        .send({ amount: -10, date: '2024-01-01', categoryId })
+        .expect(201);
 
       const newCategory = await request(app.getHttpServer())
         .post('/api/v1/categories')
-        .send({ name: 'Travel' });
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Travel' })
+        .expect(201);
       const newCategoryId = newCategory.body.id;
 
       const res = await request(app.getHttpServer())

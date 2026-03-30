@@ -6,13 +6,15 @@ import { createTestApp, getToken } from './test-utils';
 import { UsersModule } from '../src/users/users.module';
 import { UsersService } from '../src/users/users.service';
 import { SeederService } from '../src/seeds/seeder.service';
-import { SEED_USER } from '../src/seeds/seed-data';
+import { SEED_ADMIN, SEED_USER } from '../src/seeds/seed-data';
 
 describe('Users (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let userId: string;
+  let adminUserId: string;
   let token: string;
+  let regularToken: string;
 
   beforeAll(async () => {
     app = await createTestApp([UsersModule]);
@@ -31,8 +33,10 @@ describe('Users (e2e)', () => {
 
     const users = await app.get(UsersService).findAll();
     userId = users.find((u) => u.email === SEED_USER.email)!.id;
+    adminUserId = users.find((u) => u.email === SEED_ADMIN.email)!.id;
 
-    token = await getToken(app);
+    token = await getToken(app, SEED_ADMIN.email, SEED_ADMIN.password);
+    regularToken = await getToken(app);
   });
 
   describe('POST /api/v1/users', () => {
@@ -68,6 +72,19 @@ describe('Users (e2e)', () => {
         .expect(201);
 
       expect(res.body.password).toBeUndefined();
+    });
+
+    it('does not allow isAdmin to be set via the request body', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .send({
+          email: 'new@example.com',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          password: SEED_USER.password,
+          isAdmin: true,
+        })
+        .expect(400);
     });
 
     it('returns 409 for duplicate email', async () => {
@@ -157,15 +174,7 @@ describe('Users (e2e)', () => {
   });
 
   describe('GET /api/v1/users', () => {
-    it('returns all users', async () => {
-      // One seeded user already present; add one more to verify the full list is returned
-      await request(app.getHttpServer()).post('/api/v1/users').send({
-        email: 'extra@example.com',
-        firstName: 'Extra',
-        lastName: 'User',
-        password: SEED_USER.password,
-      });
-
+    it('returns all users for an admin', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/users')
         .set('Authorization', `Bearer ${token}`)
@@ -173,7 +182,7 @@ describe('Users (e2e)', () => {
 
       expect(res.body).toHaveLength(2);
       expect(res.body.map((u: any) => u.email)).toEqual(
-        expect.arrayContaining([SEED_USER.email, 'extra@example.com']),
+        expect.arrayContaining([SEED_USER.email, SEED_ADMIN.email]),
       );
     });
 
@@ -186,13 +195,20 @@ describe('Users (e2e)', () => {
       res.body.forEach((u: any) => expect(u.password).toBeUndefined());
     });
 
+    it('returns 403 for a non-admin user', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/users')
+        .set('Authorization', `Bearer ${regularToken}`)
+        .expect(403);
+    });
+
     it('returns 401 when no token is provided', async () => {
       await request(app.getHttpServer()).get('/api/v1/users').expect(401);
     });
   });
 
   describe('GET /api/v1/users/:id', () => {
-    it('returns the user for a valid id', async () => {
+    it('returns the user for an admin accessing any profile', async () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}`)
         .set('Authorization', `Bearer ${token}`)
@@ -205,6 +221,15 @@ describe('Users (e2e)', () => {
       });
     });
 
+    it('returns the user when accessing own profile', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${regularToken}`)
+        .expect(200);
+
+      expect(res.body).toMatchObject({ email: SEED_USER.email });
+    });
+
     it('does not expose the password in the response', async () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}`)
@@ -212,6 +237,13 @@ describe('Users (e2e)', () => {
         .expect(200);
 
       expect(res.body.password).toBeUndefined();
+    });
+
+    it('returns 403 when a non-admin accesses another user', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/users/${adminUserId}`)
+        .set('Authorization', `Bearer ${regularToken}`)
+        .expect(403);
     });
 
     it('returns 404 for a non-existent id', async () => {
@@ -236,6 +268,26 @@ describe('Users (e2e)', () => {
   });
 
   describe('PATCH /api/v1/users/:id', () => {
+    it('allows an admin to update any user', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ firstName: 'AdminUpdated' })
+        .expect(200);
+
+      expect(res.body.firstName).toBe('AdminUpdated');
+    });
+
+    it('allows a user to update their own profile', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${regularToken}`)
+        .send({ firstName: 'SelfUpdated' })
+        .expect(200);
+
+      expect(res.body.firstName).toBe('SelfUpdated');
+    });
+
     it('updates the user email', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/users/${userId}`)
@@ -286,6 +338,22 @@ describe('Users (e2e)', () => {
       expect(res.body.password).toBeUndefined();
     });
 
+    it('does not allow isAdmin to be set via the request body', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ isAdmin: false })
+        .expect(400);
+    });
+
+    it('returns 403 when a non-admin updates another user', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/users/${adminUserId}`)
+        .set('Authorization', `Bearer ${regularToken}`)
+        .send({ firstName: 'Hacked' })
+        .expect(403);
+    });
+
     it('returns 404 for a non-existent id', async () => {
       await request(app.getHttpServer())
         .patch('/api/v1/users/00000000-0000-0000-0000-000000000000')
@@ -303,18 +371,42 @@ describe('Users (e2e)', () => {
   });
 
   describe('DELETE /api/v1/users/:id', () => {
-    it('deletes the user and returns 204', async () => {
+    it('allows a user to delete their own account', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${regularToken}`)
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(404);
+    });
+
+    it('allows an admin to delete any user', async () => {
       await request(app.getHttpServer())
         .delete(`/api/v1/users/${userId}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(204);
 
-      // After deletion the JWT strategy cannot load the user, so the
-      // guard propagates EntityNotFoundError -> 404 (TypeOrmExceptionFilter).
       await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(404);
+    });
+
+    it('returns 400 when attempting to delete an administrator', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/users/${adminUserId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+    });
+
+    it('returns 403 when a non-admin deletes another user', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/users/${adminUserId}`)
+        .set('Authorization', `Bearer ${regularToken}`)
+        .expect(403);
     });
 
     it('returns 404 for a non-existent id', async () => {

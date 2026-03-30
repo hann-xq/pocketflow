@@ -15,4 +15,7 @@ export class UserResponseDto {
 
   @ApiProperty({ example: 'Doe' })
   lastName: string;
+
+  @ApiProperty({ example: false })
+  isAdmin: boolean;
 }
