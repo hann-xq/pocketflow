@@ -11,6 +11,7 @@ import { BankAccountsModule } from '../src/bank-accounts/bank-accounts.module';
 import { SeederService } from '../src/seeds/seeder.service';
 import { UsersService } from '../src/users/users.service';
 import { CategoriesService } from '../src/categories/categories.service';
+import { CategoryType } from '../src/categories/enums/category-type.enum';
 import { TagsService } from '../src/tags/tags.service';
 import { BankAccountsService } from '../src/bank-accounts/bank-accounts.service';
 import { SEED_ADMIN, SEED_USER } from '../src/seeds/seed-data';
@@ -21,7 +22,8 @@ describe('Transactions (e2e)', () => {
 
   // IDs for shared test fixtures
   let userId: string;
-  let categoryId: string;
+  let expenseCategoryId: string;
+  let incomeCategoryId: string;
   let tagId: string;
   let bankAccountId: string;
   let token: string;
@@ -52,7 +54,12 @@ describe('Transactions (e2e)', () => {
     userId = users.find((u) => u.email === SEED_USER.email)!.id;
 
     const categories = await app.get(CategoriesService).findAll();
-    categoryId = categories[0].id;
+    expenseCategoryId = categories.find(
+      (c) => c.type === CategoryType.EXPENSE && c.slug !== null,
+    )!.id;
+    incomeCategoryId = categories.find(
+      (c) => c.type === CategoryType.INCOME && c.slug !== null,
+    )!.id;
 
     const tags = await app.get(TagsService).findAll(userId);
     tagId = tags[0].id;
@@ -97,7 +104,7 @@ describe('Transactions (e2e)', () => {
     const otherTx = await request(app.getHttpServer())
       .post(`/api/v1/bank-accounts/${otherAccountId}/transactions`)
       .set('Authorization', `Bearer ${otherToken}`)
-      .send({ amount: -10, date: '2024-01-01', categoryId })
+      .send({ amount: -10, date: '2024-01-01', categoryId: expenseCategoryId })
       .expect(201);
 
     return {
@@ -109,16 +116,35 @@ describe('Transactions (e2e)', () => {
   }
 
   describe('POST /api/v1/bank-accounts/:bankAccountId/transactions', () => {
-    it('creates a minimal transaction and returns 201', async () => {
+    it('creates a minimal expense transaction and returns 201', async () => {
       const res = await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -42.5, date: '2024-01-15', categoryId })
+        .send({
+          amount: -42.5,
+          date: '2024-01-15',
+          categoryId: expenseCategoryId,
+        })
         .expect(201);
 
       expect(Number(res.body.amount)).toBe(-42.5);
       expect(res.body.date).toBe('2024-01-15');
       expect(res.body.id).toBeDefined();
+    });
+
+    it('creates an income transaction with an income category and returns 201', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          amount: 2500,
+          date: '2024-01-31',
+          categoryId: incomeCategoryId,
+        })
+        .expect(201);
+
+      expect(Number(res.body.amount)).toBe(2500);
+      expect(res.body.category.type).toBe(CategoryType.INCOME);
     });
 
     it('creates a fully populated transaction', async () => {
@@ -131,7 +157,7 @@ describe('Transactions (e2e)', () => {
           description: 'Amazon purchase',
           counterpartyName: 'Amazon',
           counterpartyAccount: 'NL99AMAZ0000000001',
-          categoryId,
+          categoryId: expenseCategoryId,
           tagIds: [tagId],
         })
         .expect(201);
@@ -141,6 +167,26 @@ describe('Transactions (e2e)', () => {
         counterpartyName: 'Amazon',
         counterpartyAccount: 'NL99AMAZ0000000001',
       });
+    });
+
+    it('returns 400 when a positive amount is used with an expense category', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          amount: 100,
+          date: '2024-01-15',
+          categoryId: expenseCategoryId,
+        })
+        .expect(400);
+    });
+
+    it('returns 400 when a negative amount is used with an income category', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ amount: -50, date: '2024-01-15', categoryId: incomeCategoryId })
+        .expect(400);
     });
 
     it('returns 400 when amount is missing', async () => {
@@ -171,7 +217,11 @@ describe('Transactions (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -42.5, date: '2024-01-15', categoryId })
+        .send({
+          amount: -42.5,
+          date: '2024-01-15',
+          categoryId: expenseCategoryId,
+        })
         .expect(201);
 
       expect(res.body.bankAccountId).toBe(bankAccountId);
@@ -183,7 +233,11 @@ describe('Transactions (e2e)', () => {
           '/api/v1/bank-accounts/00000000-0000-0000-0000-000000000000/transactions',
         )
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-15', categoryId })
+        .send({
+          amount: -10,
+          date: '2024-01-15',
+          categoryId: expenseCategoryId,
+        })
         .expect(404);
     });
 
@@ -193,7 +247,11 @@ describe('Transactions (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${otherAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', categoryId })
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        })
         .expect(403);
     });
 
@@ -204,7 +262,7 @@ describe('Transactions (e2e)', () => {
         .send({
           amount: -10,
           date: '2024-01-15',
-          categoryId,
+          categoryId: expenseCategoryId,
           extra: 'field',
         })
         .expect(400);
@@ -213,7 +271,11 @@ describe('Transactions (e2e)', () => {
     it('returns 401 when no token is provided', async () => {
       await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
-        .send({ amount: -10, date: '2024-01-15', categoryId })
+        .send({
+          amount: -10,
+          date: '2024-01-15',
+          categoryId: expenseCategoryId,
+        })
         .expect(401);
     });
   });
@@ -234,7 +296,7 @@ describe('Transactions (e2e)', () => {
         .send({
           amount: -20,
           date: '2024-01-10',
-          categoryId,
+          categoryId: expenseCategoryId,
           tagIds: [tagId],
         });
 
@@ -246,7 +308,7 @@ describe('Transactions (e2e)', () => {
       expect(res.body).toHaveLength(1);
       const tx = res.body[0];
       expect(tx.bankAccount).toMatchObject({ id: bankAccountId });
-      expect(tx.category).toMatchObject({ id: categoryId });
+      expect(tx.category).toMatchObject({ id: expenseCategoryId });
       expect(tx.tags).toHaveLength(1);
       expect(tx.tags[0]).toMatchObject({ id: tagId });
     });
@@ -258,11 +320,19 @@ describe('Transactions (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', categoryId });
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        });
       await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${otherAccountId}/transactions`)
         .set('Authorization', `Bearer ${otherToken}`)
-        .send({ amount: -20, date: '2024-01-02', categoryId });
+        .send({
+          amount: -20,
+          date: '2024-01-02',
+          categoryId: expenseCategoryId,
+        });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/users/${userId}/transactions`)
@@ -298,7 +368,7 @@ describe('Transactions (e2e)', () => {
         .send({
           amount: -55,
           date: '2024-06-01',
-          categoryId,
+          categoryId: expenseCategoryId,
           tagIds: [tagId],
         });
 
@@ -308,7 +378,7 @@ describe('Transactions (e2e)', () => {
         .expect(200);
 
       expect(Number(res.body.amount)).toBe(-55);
-      expect(res.body.category).toMatchObject({ id: categoryId });
+      expect(res.body.category).toMatchObject({ id: expenseCategoryId });
       expect(res.body.tags).toHaveLength(1);
     });
 
@@ -332,7 +402,11 @@ describe('Transactions (e2e)', () => {
       const created = await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', categoryId });
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        });
 
       const res = await request(app.getHttpServer())
         .get(`/api/v1/transactions/${created.body.id}`)
@@ -355,7 +429,11 @@ describe('Transactions (e2e)', () => {
       const created = await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', categoryId });
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        });
 
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/transactions/${created.body.id}`)
@@ -374,7 +452,7 @@ describe('Transactions (e2e)', () => {
         .send({
           amount: -10,
           date: '2024-01-01',
-          categoryId,
+          categoryId: expenseCategoryId,
           tagIds: [tagId],
         });
 
@@ -392,17 +470,21 @@ describe('Transactions (e2e)', () => {
       expect(fetched.body.tags).toHaveLength(0);
     });
 
-    it('updates the category relation when categoryId changes', async () => {
+    it('updates the category relation when categoryId changes to a matching type', async () => {
       const created = await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', categoryId })
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        })
         .expect(201);
 
       const newCategory = await request(app.getHttpServer())
         .post('/api/v1/categories')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ name: 'Travel' })
+        .send({ name: 'Travel', type: CategoryType.EXPENSE })
         .expect(201);
       const newCategoryId = newCategory.body.id;
 
@@ -413,6 +495,63 @@ describe('Transactions (e2e)', () => {
         .expect(200);
 
       expect(res.body.categoryId).toBe(newCategoryId);
+    });
+
+    it('returns 400 when updating amount to positive without changing to income category', async () => {
+      const created = await request(app.getHttpServer())
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ amount: 50 })
+        .expect(400);
+    });
+
+    it('returns 400 when switching to income category without updating to positive amount', async () => {
+      const created = await request(app.getHttpServer())
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ categoryId: incomeCategoryId })
+        .expect(400);
+    });
+
+    it('allows updating both amount and category to a consistent income combination', async () => {
+      const created = await request(app.getHttpServer())
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ amount: 500, categoryId: incomeCategoryId })
+        .expect(200);
+
+      expect(Number(res.body.amount)).toBe(500);
+      expect(res.body.category.type).toBe(CategoryType.INCOME);
     });
 
     it('returns 403 when updating another user transaction', async () => {
@@ -439,7 +578,11 @@ describe('Transactions (e2e)', () => {
       const created = await request(app.getHttpServer())
         .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ amount: -10, date: '2024-01-01', categoryId });
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        });
 
       await request(app.getHttpServer())
         .delete(`/api/v1/transactions/${created.body.id}`)

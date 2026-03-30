@@ -4,6 +4,7 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { Transaction } from '../transactions/entities/transaction.entity';
 import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
 import { CategoriesService } from '../categories/categories.service';
+import { CategoryType } from '../categories/enums/category-type.enum';
 import { AbnAmroTokenService } from './abn-amro-token.service';
 import { AbnAmroApiClient, TokenExpiredError } from './abn-amro-api.client';
 import { AbnAmroTransaction } from './dto/abn-amro-transaction.dto';
@@ -41,6 +42,7 @@ export class AbnAmroService {
     );
     const category = await this.categoriesService.findBySlug(
       CategoriesService.UNCATEGORIZED_SLUG,
+      CategoryType.EXPENSE,
     );
 
     this.logger.log(`Fetching transactions for account ${accountNumber}...`);

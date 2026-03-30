@@ -4,10 +4,15 @@ import { TransactionsService } from './transactions.service';
 import { TransactionsController } from './transactions.controller';
 import { Transaction } from './entities/transaction.entity';
 import { Tag } from '../tags/entities/tag.entity';
+import { CategoriesModule } from '../categories/categories.module';
 import { BankAccountsModule } from '../bank-accounts/bank-accounts.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Transaction, Tag]), BankAccountsModule],
+  imports: [
+    TypeOrmModule.forFeature([Transaction, Tag]),
+    CategoriesModule,
+    BankAccountsModule,
+  ],
   controllers: [TransactionsController],
   providers: [TransactionsService],
   exports: [TransactionsService],

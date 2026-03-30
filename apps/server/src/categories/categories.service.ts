@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
+import { CategoryType } from './enums/category-type.enum';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { EntityConflictException } from '../common/exceptions/conflict.exception';
@@ -20,6 +21,7 @@ export class CategoriesService implements ISeeder {
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
     const existing = await this.categoriesRepository.findOneBy({
       name: createCategoryDto.name,
+      type: createCategoryDto.type,
     });
 
     if (existing) {
@@ -44,8 +46,8 @@ export class CategoriesService implements ISeeder {
     return this.categoriesRepository.findOneByOrFail({ id });
   }
 
-  findBySlug(slug: string): Promise<Category> {
-    return this.categoriesRepository.findOneByOrFail({ slug });
+  findBySlug(slug: string, type: CategoryType): Promise<Category> {
+    return this.categoriesRepository.findOneByOrFail({ slug, type });
   }
 
   async update(
@@ -74,11 +76,11 @@ export class CategoriesService implements ISeeder {
   }
 
   async seed(): Promise<void> {
-    // Upsert by slug so that required system categories (e.g., uncategorized)
+    // Upsert by slug + type so that required system categories (e.g., uncategorized)
     // are always present, even when the database already has other categories.
     await this.categoriesRepository.upsert(
       SEED_CATEGORIES.map((c) => this.categoriesRepository.create(c)),
-      ['slug'],
+      ['slug', 'type'],
     );
   }
 }

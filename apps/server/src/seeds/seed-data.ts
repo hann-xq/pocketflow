@@ -1,3 +1,5 @@
+import { CategoryType } from '../categories/enums/category-type.enum';
+
 export const SEED_USER = {
   email: 'test@example.com',
   password: 'password123',
@@ -18,26 +20,74 @@ export const SEED_BANK_ACCOUNT = {
 } as const;
 
 export const SEED_CATEGORIES = [
-  { name: 'Uncategorized', slug: 'uncategorized', description: null },
+  // Expense categories
+  {
+    name: 'Uncategorized',
+    slug: 'uncategorized',
+    description: null,
+    type: CategoryType.EXPENSE,
+  },
   {
     name: 'Groceries',
     slug: 'groceries',
     description: 'Food and grocery shopping',
+    type: CategoryType.EXPENSE,
   },
   {
     name: 'Transport',
     slug: 'transport',
     description: 'Public transport, fuel, and parking',
+    type: CategoryType.EXPENSE,
   },
   {
     name: 'Housing',
     slug: 'housing',
     description: 'Rent, mortgage, and utilities',
+    type: CategoryType.EXPENSE,
   },
   {
     name: 'Entertainment',
     slug: 'entertainment',
     description: 'Leisure and subscriptions',
+    type: CategoryType.EXPENSE,
+  },
+  {
+    name: 'Dining',
+    slug: 'dining',
+    description: 'Restaurants and takeaway',
+    type: CategoryType.EXPENSE,
+  },
+  {
+    name: 'Health',
+    slug: 'health',
+    description: 'Medical expenses and pharmacy',
+    type: CategoryType.EXPENSE,
+  },
+
+  // Income categories
+  {
+    name: 'Uncategorized',
+    slug: 'uncategorized',
+    description: null,
+    type: CategoryType.INCOME,
+  },
+  {
+    name: 'Salary',
+    slug: 'salary',
+    description: 'Employment income',
+    type: CategoryType.INCOME,
+  },
+  {
+    name: 'Investments',
+    slug: 'investments',
+    description: 'Dividends, interest, and capital gains',
+    type: CategoryType.INCOME,
+  },
+  {
+    name: 'Freelance',
+    slug: 'freelance',
+    description: 'Self-employment and contract work',
+    type: CategoryType.INCOME,
   },
 ] as const;
 

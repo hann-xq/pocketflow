@@ -5,6 +5,9 @@ import { Transaction } from './entities/transaction.entity';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Tag } from '../tags/entities/tag.entity';
+import { CategoriesService } from '../categories/categories.service';
+import { CategoryType } from '../categories/enums/category-type.enum';
+import { InvalidRequestException } from '../common/exceptions/invalid-request.exception';
 
 @Injectable()
 export class TransactionsService {
@@ -13,6 +16,7 @@ export class TransactionsService {
     private readonly transactionsRepository: Repository<Transaction>,
     @InjectRepository(Tag)
     private readonly tagsRepository: Repository<Tag>,
+    private readonly categoriesService: CategoriesService,
   ) {}
 
   async create(
@@ -20,6 +24,11 @@ export class TransactionsService {
     bankAccountId: string,
   ): Promise<Transaction> {
     const { tagIds, ...transactionData } = createTransactionDto;
+
+    const category = await this.categoriesService.findOne(
+      createTransactionDto.categoryId,
+    );
+    this.validateCategoryType(createTransactionDto.amount, category.type);
 
     const transaction = this.transactionsRepository.create({
       ...transactionData,
@@ -54,6 +63,20 @@ export class TransactionsService {
     const transaction = await this.transactionsRepository.findOneByOrFail({
       id,
     });
+
+    // Validate that the current or the new category is suitable for the type of
+    // the transaction.
+    if (data.amount !== undefined || data.categoryId !== undefined) {
+      const resolvedAmount =
+        data.amount !== undefined ? data.amount : Number(transaction.amount);
+      const resolvedCategoryId =
+        data.categoryId !== undefined
+          ? data.categoryId
+          : transaction.categoryId;
+
+      const category = await this.categoriesService.findOne(resolvedCategoryId);
+      this.validateCategoryType(resolvedAmount, category.type);
+    }
 
     if (data.description !== undefined) {
       transaction.description = data.description;
@@ -119,5 +142,21 @@ export class TransactionsService {
     });
 
     return new Set(existing.map((t) => t.externalId!));
+  }
+
+  private validateCategoryType(
+    amount: number,
+    categoryType: CategoryType,
+  ): void {
+    if (amount > 0 && categoryType !== CategoryType.INCOME) {
+      throw new InvalidRequestException(
+        'A positive amount requires an income category.',
+      );
+    }
+    if (amount <= 0 && categoryType !== CategoryType.EXPENSE) {
+      throw new InvalidRequestException(
+        'A non-positive amount requires an expense category.',
+      );
+    }
   }
 }

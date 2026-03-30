@@ -37,16 +37,27 @@ export class CategoriesController {
   @Post()
   @AdminOnly()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new category (admin only)' })
+  @ApiOperation({
+    summary: 'Create a new category (admin only)',
+    description:
+      'Creates a category of the specified type. The type is permanent and cannot be changed after creation. ' +
+      'Expense categories apply to transactions with amounts <= 0; income categories apply to amounts > 0. ' +
+      'The name must be unique within the same type, so an expense and an income category may share a name.',
+  })
   @ApiCreatedResponse({ type: CategoryResponseDto })
   @ApiBadRequestResponse({ description: 'Validation error' })
-  @ApiConflictResponse({ description: 'Category name already exists' })
+  @ApiConflictResponse({
+    description: 'Category name already exists for this type',
+  })
   create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoriesService.create(createCategoryDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all categories' })
+  @ApiOperation({
+    summary: 'Get all categories',
+    description: 'Returns all categories, both expense and income.',
+  })
   @ApiOkResponse({ type: [CategoryResponseDto] })
   findAll() {
     return this.categoriesService.findAll();
@@ -63,12 +74,18 @@ export class CategoriesController {
 
   @Patch(':id')
   @AdminOnly()
-  @ApiOperation({ summary: 'Update a category (admin only)' })
+  @ApiOperation({
+    summary: 'Update a category (admin only)',
+    description:
+      'Updates the name and/or description of a category. The type cannot be changed.',
+  })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: CategoryResponseDto })
   @ApiBadRequestResponse({ description: 'Validation error' })
   @ApiNotFoundResponse({ description: 'Category not found' })
-  @ApiConflictResponse({ description: 'Category name already exists' })
+  @ApiConflictResponse({
+    description: 'Category name already exists for this type',
+  })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,

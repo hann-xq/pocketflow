@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { CategoryType } from '../enums/category-type.enum';
 
 export class CategoryResponseDto {
   @ApiProperty({
@@ -20,4 +21,12 @@ export class CategoryResponseDto {
 
   @ApiProperty({ nullable: true, example: 'Weekly grocery shopping' })
   description: string | null;
+
+  @ApiProperty({
+    enum: CategoryType,
+    example: CategoryType.EXPENSE,
+    description:
+      'Indicates whether this category applies to expenses (amounts <= 0) or income (amounts > 0).',
+  })
+  type: CategoryType;
 }
