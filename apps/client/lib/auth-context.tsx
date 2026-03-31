@@ -20,6 +20,7 @@ type AuthContextType = {
   userId: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -46,6 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(accessToken);
   }
 
+  async function register(firstName: string, lastName: string, email: string, password: string) {
+    await api.post('/users', { firstName, lastName, email, password });
+    await login(email, password);
+  }
+
   async function logout() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     api.applyToken(null);
@@ -53,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, userId: token ? decodeUserId(token) : null, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ token, userId: token ? decodeUserId(token) : null, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

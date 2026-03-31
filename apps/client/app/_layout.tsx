@@ -1,4 +1,5 @@
 import LoginScreen from "@/components/LoginScreen";
+import RegisterScreen from "@/components/RegisterScreen";
 import { initDatabase, seedDatabase } from "@/database/database";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -18,6 +19,7 @@ function AppContent() {
   const { token, isLoading: tokenLoading } = useAuth();
   const [bioPassed, setBioPassed] = useState(false);
   const [authFailed, setAuthFailed] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
     async function setup() {
@@ -27,6 +29,10 @@ function AppContent() {
     setup();
     authenticate();
   }, []);
+
+  useEffect(() => {
+    if (!token) setShowRegister(false);
+  }, [token]);
 
   async function authenticate() {
     setAuthFailed(false);
@@ -100,7 +106,10 @@ function AppContent() {
   }
 
   if (!token) {
-    return <LoginScreen />;
+    if (showRegister) {
+      return <RegisterScreen onBack={() => setShowRegister(false)} />;
+    }
+    return <LoginScreen onShowRegister={() => setShowRegister(true)} />;
   }
 
   return (
