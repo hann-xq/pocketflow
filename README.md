@@ -1,93 +1,92 @@
-# template
+# PocketFlow
 
+A personal finance application with a NestJS backend and a React Native (Expo) mobile client.
 
+## Prerequisites
 
-## Getting started
+- Node.js 22 (or higher)
+- npm 10 (or higher)
+- Docker and Docker Compose
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Setup
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+### Server
 
-## Add your files
+Copy the example env file in `apps/server/` and fill in your values:
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/saxionnl/hbo-ict/aad/2025-2026/template.git
-git branch -M main
-git push -uf origin main
+```bash
+cp apps/server/.env.example apps/server/.env
 ```
 
-## Integrate with your tools
+Two values must be set before the server will start:
 
-- [ ] [Set up project integrations](https://gitlab.com/saxionnl/hbo-ict/aad/2025-2026/template/-/settings/integrations)
+- **`ENCRYPTION_KEY`**: a 64-character hex string (32 bytes). Generate one with:
+  ```bash
+  openssl rand -hex 32
+  ```
+- **`JWT_SECRET`**: a long, random string used to sign tokens. Change the placeholder in `.env.example`.
 
-## Collaborate with your team
+The database variables (`DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`) already have working defaults for the
+Docker Compose stack. Change them only if you need different credentials.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+#### ABN AMRO
 
-## Test and Deploy
+Transaction import from ABN AMRO requires a developer account. Register
+at [developer.abnamro.com](https://developer.abnamro.com), create an app, and subscribe to the
+**Account Information PSD2** product to get an API key.
 
-Use the built-in continuous integration in GitLab.
+For sandbox use, set these in `.env`:
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+```env
+ABN_AMRO_CLIENT_ID=TPP_test
+ABN_AMRO_API_KEY=<your key>
+ABN_AMRO_REDIRECT_URI=https://localhost/auth
+```
 
-***
+See [apps/server/README.md](apps/server/README.md) for the full OAuth2 flow and setup for production.
 
-# Editing this README
+### Client
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+The client API base URL is hardcoded in [apps/client/lib/api.ts](apps/client/lib/api.ts):
 
-## Suggestions for a good README
+```ts
+const BASE_URL = "http://10.0.2.2:3000/api/v1";
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+`10.0.2.2` is the Android emulator's alias for the host machine. Change this if you are running on a physical device or
+iOS simulator.
 
-## Name
-Choose a self-explaining name for your project.
+Install the client dependencies:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```bash
+cd apps/client && npm install
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Running
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Server
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+From the repo root:
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+docker compose up
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+The API is available at `https://localhost/api/v1`. Port `3000` is also exposed directly for use with the Android
+emulator.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### Client
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```bash
+cd apps/client && npm start
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Scan the QR code with the Expo Go app, or press `a` for the Android emulator or `i` for the iOS simulator.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## Test User Credentials
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+| Field    | Regular user       | Administrator       |
+|----------|--------------------|---------------------|
+| Email    | `test@example.com` | `admin@example.com` |
+| Password | `password123`      | `password123`       |
+| Admin    | `false`            | `true`              |

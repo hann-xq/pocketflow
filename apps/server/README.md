@@ -1,13 +1,7 @@
 # PocketFlow Server
 
-NestJS REST API with PostgreSQL for managing users, transactions, categories, and tags. Includes integration with the
-ABN AMRO sandbox API to import transactions.
-
-## Features
-
-- Manage users, bank accounts, transactions, categories, and tags
-- Import transactions from ABN AMRO via OAuth2 + PSD2 API
-- URI-versioned REST API (`/api/v1/`)
+NestJS REST API with PostgreSQL for managing users, bank accounts, transactions, categories, and tags. Includes
+integration with the ABN AMRO sandbox API to import transactions.
 
 ## Tech Stack
 
@@ -18,8 +12,8 @@ ABN AMRO sandbox API to import transactions.
 
 ## Prerequisites
 
-- Node.js 18 (or higher)
-- npm 9 (or higher)
+- Node.js 22 (or higher)
+- npm 10 (or higher)
 
 ## Setup
 
@@ -41,7 +35,7 @@ cp .env.example .env
 |-------------------------|----------------------------------------------------------------------------------------------------------------------|
 | `PORT`                  | HTTP port                                                                                                            |
 | `JWT_SECRET`            | Secret used to sign JWT tokens                                                                                       |
-| `ENCRYPTION_KEY`        | 64-character hex string (32 bytes) used to encrypt sensitive columns at rest.                                        |
+| `ENCRYPTION_KEY`        | 64-character hex string (32 bytes) used to encrypt sensitive columns at rest                                         |
 | `DB_HOST`               | PostgreSQL host                                                                                                      |
 | `DB_PORT`               | PostgreSQL port                                                                                                      |
 | `DB_USERNAME`           | PostgreSQL user                                                                                                      |
@@ -57,6 +51,36 @@ cp .env.example .env
 | `ABN_AMRO_REDIRECT_URI` | OAuth2 redirect URI. The sandbox hardcodes `https://localhost/auth` and it cannot be changed in the developer portal |
 | `ABN_AMRO_SCOPE`        | OAuth2 scopes to request                                                                                             |
 
+## Running the application
+
+```bash
+# Development (watch mode)
+npm run start:dev
+
+# Development (single run)
+npm run start
+
+# Production
+npm run build
+npm run start:prod
+```
+
+The API is available at `http://localhost:3000/api/v1`. When running via Docker, the API is available at
+`https://localhost/api/v1`.
+
+Interactive API documentation is available via Swagger UI when running in development: http://localhost:3000/api.
+Swagger is not available in production.
+
+## Test User Credentials
+
+Two users are seeded by default.
+
+| Field    | Regular user       | Administrator       |
+|----------|--------------------|---------------------|
+| Email    | `test@example.com` | `admin@example.com` |
+| Password | `password123`      | `password123`       |
+| Admin    | `false`            | `true`              |
+
 ## Administration
 
 A user is considered an administrator when their `isAdmin` flag is `true`. This flag is included in the JWT payload
@@ -71,16 +95,6 @@ through the API. The only way to grant administrator access is directly in the d
 |----------------|------------------------------|---------------------------------|
 | `@Auth()`      | `JwtAuthGuard`               | 401                             |
 | `@AdminOnly()` | `JwtAuthGuard`, `AdminGuard` | 401 (no token), 403 (non-admin) |
-
-## Test User Credentials
-
-Two users are seeded by default.
-
-| Field    | Regular user       | Administrator       |
-|----------|--------------------|---------------------|
-| Email    | `test@example.com` | `admin@example.com` |
-| Password | `password123`      | `password123`       |
-| Admin    | `false`            | `true`              |
 
 ## Seeding
 
@@ -105,23 +119,6 @@ update multiple places.
 E2E tests use the same seeding mechanism. Each test resets the in-memory SQLite database with
 `dataSource.synchronize(true)` and then calls `SeederService.run()` to restore the base data. Tests resolve entity IDs
 from the seeded records via service calls in `beforeEach`, so they never depend on hardcoded UUIDs.
-
-## Running the application
-
-```bash
-# Development (watch mode)
-npm run start:dev
-
-# Development (single run)
-npm run start
-
-# Production
-npm run build
-npm run start:prod
-```
-
-The API is available at `http://localhost:3000/api/v1`. When running via Docker, the API is available at
-`https://localhost/api/v1`.
 
 ## HTTPS (Docker)
 
@@ -151,13 +148,6 @@ once (or add a permanent exception) and subsequent requests will work without in
 
 If `SERVER_NAME` is not set, the production compose file will refuse to start.
 
-## API Reference
-
-Interactive API documentation is available via Swagger UI when running in development: http://localhost:3000/api
-
-All routes, request bodies, query parameters, and response schemas are documented there. Swagger is not available in
-production.
-
 ## ABN AMRO integration
 
 The integration uses
@@ -165,12 +155,28 @@ the [ABN AMRO Account Information PSD2 API](https://developer.abnamro.com/api-pr
 implements the **OAuth2 authorization code flow**, which requires explicit customer consent before any account data can
 be retrieved.
 
+### Flow
+
+1. Call `GET /api/v1/bank-accounts/:id/abn-amro/authorization`.
+2. Open the URL in a browser. The user grants consent at ABN AMRO.
+3. ABN AMRO redirects back to `https://localhost/auth`. The server exchanges the code for tokens and stores them
+   encrypted in the database.
+4. Call `POST /api/v1/bank-accounts/:id/abn-amro/transactions` to sync transactions. Returns
+   `{ imported: number, skipped: number }`.
+
+Tokens survive server restarts. Once connected, the sync endpoint handles access token expiry automatically: if the
+server receives a 401, it refreshes the token and retries once. If the refresh itself fails, the connection is deleted
+and the OAuth2 flow must be repeated.
+
+To disconnect a bank account from ABN AMRO without deleting the account, call
+`DELETE /api/v1/bank-accounts/:id/abn-amro/connection`. This removes the stored tokens.
+
 ### Sandbox limitations and workarounds
 
 #### Fixed redirect URI
 
 The ABN AMRO sandbox hardcodes the OAuth2 redirect URI to `https://localhost/auth`. This value **cannot be changed** for
-sandbox applications — the developer portal does not allow registering a different URI for sandbox apps.
+sandbox applications; the developer portal does not allow registering a different URI for sandbox apps.
 
 Nginx listens on port `443` and proxies to the server, so `https://localhost/auth` is handled directly by the `/auth`
 endpoint. On success the server stores the token in the database (encrypted) and returns a confirmation:
@@ -180,9 +186,6 @@ endpoint. On success the server stores the token in the database (encrypted) and
   "message": "Authorization successful. You may now sync transactions."
 }
 ```
-
-The token is now persisted in the database and survives server restarts, so the OAuth2 flow only needs to be completed
-once per bank account.
 
 ### Setup
 
@@ -212,4 +215,10 @@ When both variables are set the server attaches the certificate to every token r
 ```bash
 # E2E tests
 npm run test:e2e
+
+# Watch mode
+npm run test:e2e:watch
+
+# With coverage
+npm run test:e2e:cov
 ```
