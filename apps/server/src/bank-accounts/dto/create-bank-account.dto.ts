@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 import { IsDutchIban } from '../../validators/is-dutch-iban.validator';
 
 export class CreateBankAccountDto {
@@ -11,8 +11,10 @@ export class CreateBankAccountDto {
   @IsDutchIban()
   accountNumber: string;
 
-  @ApiProperty({ example: 'My Checking Account' })
+  @ApiProperty({ example: 'My Checking Account', minLength: 2, maxLength: 60 })
   @IsString()
   @IsNotEmpty()
+  @MinLength(2)
+  @MaxLength(60)
   accountName: string;
 }

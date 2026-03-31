@@ -10,6 +10,13 @@ export class TransactionResponseDto {
   })
   id: string;
 
+  @ApiProperty({
+    description:
+      'True if the transaction was imported from an external source (e.g., ABN AMRO sync). ' +
+      'External transactions have a read-only description.',
+  })
+  isExternal: boolean;
+
   @ApiProperty({ nullable: true })
   description: string | null;
 

@@ -11,7 +11,7 @@ import {
 import { Category } from '../../categories/entities/category.entity';
 import { Tag } from '../../tags/entities/tag.entity';
 import { BankAccount } from '../../bank-accounts/entities/bank-account.entity';
-import { Exclude } from 'class-transformer';
+import { Exclude, Expose } from 'class-transformer';
 
 @Entity('transactions')
 @Unique(['bankAccountId', 'externalId'])
@@ -29,6 +29,11 @@ export class Transaction {
   @Column({ nullable: true, type: 'varchar' })
   @Exclude()
   externalId: string | null;
+
+  @Expose()
+  get isExternal(): boolean {
+    return this.externalId !== null;
+  }
 
   @Column({ nullable: true, type: 'varchar' })
   description: string | null;

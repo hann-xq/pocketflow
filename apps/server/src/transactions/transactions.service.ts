@@ -79,6 +79,12 @@ export class TransactionsService {
     }
 
     if (data.description !== undefined) {
+      if (transaction.externalId !== null) {
+        throw new InvalidRequestException(
+          'Cannot modify the description of an external transaction.',
+        );
+      }
+
       transaction.description = data.description;
     }
 

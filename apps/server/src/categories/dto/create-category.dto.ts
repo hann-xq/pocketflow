@@ -1,11 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { CategoryType } from '../enums/category-type.enum';
 
 export class CreateCategoryDto {
-  @ApiProperty({ example: 'Groceries' })
+  @ApiProperty({ example: 'Groceries', minLength: 2, maxLength: 50 })
   @IsString()
   @IsNotEmpty()
+  @MinLength(2)
+  @MaxLength(50)
   name: string;
 
   @ApiProperty({
@@ -24,8 +33,12 @@ export class CreateCategoryDto {
     required: false,
     nullable: true,
     example: 'Weekly grocery shopping',
+    minLength: 10,
+    maxLength: 200,
   })
   @IsString()
   @IsOptional()
+  @MinLength(10)
+  @MaxLength(200)
   description?: string;
 }

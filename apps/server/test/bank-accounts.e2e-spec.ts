@@ -374,7 +374,7 @@ describe('BankAccounts (e2e)', () => {
       await request(app.getHttpServer())
         .patch('/api/v1/bank-accounts/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${token}`)
-        .send({ accountName: 'X' })
+        .send({ accountName: 'Updated' })
         .expect(404);
     });
   });
