@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ExternalConnectionType } from '../enums/external-connection-type.enum';
 
 export class BankAccountResponseDto {
   @ApiProperty({
@@ -18,4 +19,11 @@ export class BankAccountResponseDto {
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   userId: string;
+
+  @ApiProperty({
+    enum: ExternalConnectionType,
+    nullable: true,
+    example: ExternalConnectionType.AbnAmro,
+  })
+  connectionType: ExternalConnectionType | null;
 }

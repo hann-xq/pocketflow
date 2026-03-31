@@ -4,10 +4,14 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Exclude, Expose } from 'class-transformer';
 import { User } from '../../users/entities/user.entity';
 import { Transaction } from '../../transactions/entities/transaction.entity';
+import { BankConnection } from '../../abn-amro/entities/bank-connection.entity';
+import { ExternalConnectionType } from '../enums/external-connection-type.enum';
 
 @Entity('bank_accounts')
 export class BankAccount {
@@ -32,4 +36,13 @@ export class BankAccount {
 
   @Column({ name: 'user_id' })
   userId: string;
+
+  @Exclude()
+  @OneToOne(() => BankConnection, (account) => account.bankAccount)
+  bankConnection?: BankConnection;
+
+  @Expose()
+  get connectionType(): ExternalConnectionType | null {
+    return this.bankConnection?.type ?? null;
+  }
 }

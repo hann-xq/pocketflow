@@ -40,11 +40,17 @@ export class BankAccountsService implements ISeeder {
   }
 
   findAllForUser(userId: string): Promise<BankAccount[]> {
-    return this.bankAccountsRepository.findBy({ userId });
+    return this.bankAccountsRepository.find({
+      where: { userId },
+      relations: { bankConnection: true },
+    });
   }
 
   findOne(id: string): Promise<BankAccount> {
-    return this.bankAccountsRepository.findOneByOrFail({ id });
+    return this.bankAccountsRepository.findOneOrFail({
+      where: { id },
+      relations: { bankConnection: true },
+    });
   }
 
   async update(id: string, dto: UpdateBankAccountDto): Promise<BankAccount> {
