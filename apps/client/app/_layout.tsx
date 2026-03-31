@@ -118,6 +118,10 @@ function AppContent() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="insights/[category]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="transactions/edit-tags"
         options={{ headerShown: false }}
       />

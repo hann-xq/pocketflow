@@ -53,6 +53,8 @@ export default function TransactionDetail() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editAmount, setEditAmount] = useState(transaction.amount);
   const [editCounterpartyName, setEditCounterpartyName] = useState(transaction.counterpartyName);
+  const [editCounterpartyAccount, setEditCounterpartyAccount] = useState(transaction.counterpartyAccount);
+  const [currentCounterpartyAccount, setCurrentCounterpartyAccount] = useState(transaction.counterpartyAccount);
 
   const { data: categories = [], isLoading: loadingCategories } = useQuery({
     queryKey: ["categories"],
@@ -71,12 +73,13 @@ export default function TransactionDetail() {
   });
 
   const { mutate: updateTransaction, isPending: savingEdit } = useMutation({
-  mutationFn: (payload: { amount: number; counterpartyName: string }) =>
+  mutationFn: (payload: { amount: number; counterpartyName: string; counterpartyAccount: string }) =>
     api.patch<ApiTransaction>(`/transactions/${transaction.id}`, payload),
 
   onSuccess: async (data) => {
     setCurrentAmount(data.amount);
     setCurrentCounterpartyName(data.counterpartyName);
+    setCurrentCounterpartyAccount(data.counterpartyAccount);
     setEditModalVisible(false);
     await queryClient.invalidateQueries({ queryKey: ["transactions"], exact: true });
   },
@@ -189,7 +192,7 @@ export default function TransactionDetail() {
           <View className="px-4 py-4 bg-cards border-b border-border">
             <Text className="text-sm font-semibold text-tPrimary mb-1">Counterparty</Text>
             <Text className="text-tSecondary text-sm">{currentCounterpartyName}</Text>
-            <Text className="text-tSecondary text-sm">{transaction.counterpartyAccount}</Text>
+            <Text className="text-tSecondary text-sm">{currentCounterpartyAccount}</Text>
           </View>
 
           {transaction.description && (
@@ -204,6 +207,7 @@ export default function TransactionDetail() {
             onPress={() => {
               setEditAmount(currentAmount);
               setEditCounterpartyName(currentCounterpartyName);
+              setEditCounterpartyAccount(currentCounterpartyAccount);
               setEditModalVisible(true);
             }}
             accessibilityRole="button"
@@ -255,12 +259,24 @@ export default function TransactionDetail() {
                 />
               </View>
 
+              <View>
+                <Text className="text-sm font-semibold text-tPrimary mb-2">Counterparty account</Text>
+                <TextInput
+                  className="bg-background text-tPrimary px-3 py-3 rounded-lg border border-border"
+                  value={editCounterpartyAccount}
+                  onChangeText={setEditCounterpartyAccount}
+                  placeholder="e.g. BE68 5390 0754 7034"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
               <TouchableOpacity
                 className="py-3 bg-primary rounded-xl items-center mt-2"
                 onPress={() => {
                   updateTransaction({
                     amount: parseFloat(editAmount),
                     counterpartyName: editCounterpartyName,
+                    counterpartyAccount: editCounterpartyAccount,
                   })
                 }}
                 disabled={savingEdit}
