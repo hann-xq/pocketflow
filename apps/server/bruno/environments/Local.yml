@@ -8,3 +8,5 @@ variables:
     name: test_user
   - secret: true
     name: access_token
+  - secret: true
+    name: test_bank_account

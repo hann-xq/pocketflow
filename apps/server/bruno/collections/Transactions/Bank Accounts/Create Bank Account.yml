@@ -1,0 +1,22 @@
+info:
+  name: Create Bank Account
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{API}}/users/{{test_user}}/bank-accounts"
+  body:
+    type: json
+    data: |-
+      {
+        "accountNumber": "NL12ABNA9999876523",
+        "accountName": "Savings"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
