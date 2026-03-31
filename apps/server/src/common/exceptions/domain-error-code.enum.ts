@@ -1,6 +1,6 @@
 export enum DomainErrorCode {
-  NOT_AUTHORIZED = 'NOT_AUTHORIZED',
-  CONFLICT = 'CONFLICT',
-  INVALID_REQUEST = 'INVALID_REQUEST',
-  EXTERNAL_SERVICE = 'EXTERNAL_SERVICE',
+  NOT_AUTHORIZED = 'NotAuthorized',
+  CONFLICT = 'Conflict',
+  INVALID_REQUEST = 'InvalidRequest',
+  EXTERNAL_SERVICE = 'ExternalService',
 }
