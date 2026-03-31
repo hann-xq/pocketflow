@@ -216,10 +216,10 @@ describe('Categories (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/categories/${expenseCategoryId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ description: 'New desc' })
+        .send({ description: 'New description' })
         .expect(200);
 
-      expect(res.body.description).toBe('New desc');
+      expect(res.body.description).toBe('New description');
     });
 
     it('returns 400 when attempting to change the type', async () => {
@@ -259,7 +259,7 @@ describe('Categories (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/categories/00000000-0000-0000-0000-000000000000`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'X' })
+        .send({ name: 'Updated' })
         .expect(404);
     });
   });

@@ -15,6 +15,7 @@ import { CategoryType } from '../src/categories/enums/category-type.enum';
 import { TagsService } from '../src/tags/tags.service';
 import { BankAccountsService } from '../src/bank-accounts/bank-accounts.service';
 import { SEED_ADMIN, SEED_USER } from '../src/seeds/seed-data';
+import { Transaction } from '../src/transactions/entities/transaction.entity';
 
 describe('Transactions (e2e)', () => {
   let app: INestApplication<App>;
@@ -156,7 +157,7 @@ describe('Transactions (e2e)', () => {
           date: '2024-03-01',
           description: 'Amazon purchase',
           counterpartyName: 'Amazon',
-          counterpartyAccount: 'NL99AMAZ0000000001',
+          counterpartyAccount: 'NL91ABNA0417164300',
           categoryId: expenseCategoryId,
           tagIds: [tagId],
         })
@@ -165,7 +166,7 @@ describe('Transactions (e2e)', () => {
       expect(res.body).toMatchObject({
         description: 'Amazon purchase',
         counterpartyName: 'Amazon',
-        counterpartyAccount: 'NL99AMAZ0000000001',
+        counterpartyAccount: 'NL91ABNA0417164300',
       });
     });
 
@@ -416,6 +417,28 @@ describe('Transactions (e2e)', () => {
       expect(res.body.bankAccount).toMatchObject({ id: bankAccountId });
     });
 
+    it('does not expose externalId and exposes isExternal instead', async () => {
+      const txRepo = dataSource.getRepository(Transaction);
+      const externalTx = await txRepo.save(
+        txRepo.create({
+          externalId: 'ext-001',
+          amount: -20,
+          date: '2024-01-01',
+          bankAccountId,
+          categoryId: expenseCategoryId,
+          tags: [],
+        }),
+      );
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/transactions/${externalTx.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body.externalId).toBeUndefined();
+      expect(res.body.isExternal).toBe(true);
+    });
+
     it('returns 400 for an invalid id', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/transactions/abc')
@@ -443,6 +466,26 @@ describe('Transactions (e2e)', () => {
 
       expect(Number(res.body.amount)).toBe(-25);
       expect(res.body.description).toBe('Updated desc');
+    });
+
+    it('returns 400 when updating the description of an external transaction', async () => {
+      const txRepo = dataSource.getRepository(Transaction);
+      const externalTx = await txRepo.save(
+        txRepo.create({
+          externalId: 'ext-001',
+          amount: -20,
+          date: '2024-01-01',
+          bankAccountId,
+          categoryId: expenseCategoryId,
+          tags: [],
+        }),
+      );
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/transactions/${externalTx.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ description: 'New description' })
+        .expect(400);
     });
 
     it('removes all tags from a transaction', async () => {
