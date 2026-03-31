@@ -167,20 +167,6 @@ export default function Transactions() {
   return (
     <SafeAreaProvider>
       <SafeAreaView className="flex-1 bg-background">
-        {/* Balance Header */}
-        <View
-          className="items-center py-6 bg-cards border-b border-border"
-          accessible={true}
-          accessibilityLabel={`Balance: €${balance.toFixed(2)}`}
-          accessibilityRole="summary"
-        >
-          <Text className="text-4xl font-bold text-tPrimary" importantForAccessibility="no">
-            € {balance.toFixed(2)}
-          </Text>
-          <Text className="text-tSecondary mt-1" importantForAccessibility="no">
-            Balance
-          </Text>
-        </View>
 
         {/* Transaction List */}
         <SectionList

@@ -6,17 +6,6 @@ export default function Index() {
   return (
     <Tabs>
       <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          headerShown: false,
-          tabBarAccessibilityLabel: 'Home tab',
-          tabBarIcon: () => (
-            <MaterialCommunityIcons name="home" importantForAccessibility="no" accessibilityElementsHidden={true} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="insights"
         options={{
           title: 'Insights',

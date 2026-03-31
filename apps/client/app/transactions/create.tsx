@@ -119,27 +119,27 @@ export default function CreateTransaction() {
             </View>
           )}
 
-          {/* Amount */}
+          {/* Amount + Expense Toggle */}
           <View className="mb-4">
             <Text className="text-tSecondary text-xs mb-1">Amount *</Text>
-            <TextInput
-              className={`bg-cards border rounded-lg px-3 py-3 text-tPrimary text-base ${errors.amount ? "border-red-500" : "border-border"}`}
-              placeholder="e.g. 42.50"
-              placeholderTextColor="#94A3B8"
-              keyboardType="numeric"
-              value={form.amount}
-              onChangeText={(v) => setForm((f) => ({ ...f, amount: v }))}
-            />
+            <View className="flex-row items-center gap-3">
+              <TextInput
+                className={`flex-1 bg-cards border rounded-lg px-3 py-3 text-tPrimary text-base ${errors.amount ? "border-red-500" : "border-border"}`}
+                placeholder="e.g. 42.50"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+                value={form.amount}
+                onChangeText={(v) => setForm((f) => ({ ...f, amount: v }))}
+              />
+              <View className="flex-row items-center gap-1">
+                <Text className="text-tPrimary text-base">Expense</Text>
+                <Switch
+                  value={form.isExpense}
+                  onValueChange={(v) => setForm((f) => ({ ...f, isExpense: v }))}
+                />
+              </View>
+            </View>
             {errors.amount && <Text className="text-red-500 text-xs mt-1">{errors.amount}</Text>}
-          </View>
-
-          {/* Expense Toggle */}
-          <View className="mb-4 flex-row items-center justify-end rounded-lg px-5 py-3">
-            <Text className="text-tPrimary text-base">Expense</Text>
-            <Switch
-              value={form.isExpense}
-              onValueChange={(v) => setForm((f) => ({ ...f, isExpense: v }))}
-            />
           </View>
 
           {/* Date */}
