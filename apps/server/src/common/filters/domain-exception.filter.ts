@@ -22,7 +22,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
     const status = HTTP_STATUS[exception.code];
 
     response.status(status).json({
-      statusCode: status,
       message: exception.message,
       error: exception.code,
     });
