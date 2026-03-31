@@ -1,15 +1,23 @@
-import { useState } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '@/lib/auth-context';
 
 const logo = require('../assets/images/logo.png');
 
-export default function LoginScreen() {
+interface Props {
+  onShowRegister: () => void;
+}
+
+export default function LoginScreen({ onShowRegister }: Props) {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const passwordRef = useRef<TextInput>(null);
 
   async function handleLogin() {
     if (!email || !password) {
@@ -54,17 +62,36 @@ export default function LoginScreen() {
           keyboardType="email-address"
           textContentType="emailAddress"
           accessibilityLabel="Email"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
         />
-        <TextInput
-          className="bg-surface border border-border rounded-xl px-4 py-3 text-tPrimary text-base"
-          placeholder="Password"
-          placeholderTextColor="#9ca3af"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          textContentType="password"
-          accessibilityLabel="Password"
-        />
+
+        <View className="flex-row items-center bg-surface border border-border rounded-xl pr-3">
+          <TextInput
+            ref={passwordRef}
+            className="flex-1 px-4 py-3 text-tPrimary text-base"
+            placeholder="Password"
+            placeholderTextColor="#9ca3af"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            textContentType="password"
+            accessibilityLabel="Password"
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword((v) => !v)}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={22}
+              color="#9ca3af"
+            />
+          </TouchableOpacity>
+        </View>
 
         {error && (
           <Text className="text-red-600 text-sm text-center" accessibilityRole="alert" accessibilityLiveRegion="assertive">
@@ -84,6 +111,18 @@ export default function LoginScreen() {
           ) : (
             <Text className="text-white text-base font-semibold">Sign in</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className="items-center mt-2"
+          onPress={onShowRegister}
+          accessibilityRole="button"
+          accessibilityLabel="Create an account"
+        >
+          <Text className="text-tSecondary text-sm">
+            Don&apos;t have an account?{' '}
+            <Text className="text-primary font-semibold">Sign up</Text>
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

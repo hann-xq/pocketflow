@@ -127,7 +127,6 @@ export default function Transactions() {
   });
 
   const sections = groupByDate(transactions);
-  const balance = transactions.reduce((sum, t) => sum + parseAmount(t.amount), 0);
 
   const renderSectionHeader = ({ section }: { section: Section }) => (
     <View
