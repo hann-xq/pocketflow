@@ -11,7 +11,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ExternalServiceException } from '../common/exceptions/external-service.exception';
 import { NotAuthorizedException } from '../common/exceptions/not-authorized.exception';
-import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
 import { ExternalConnectionType } from '../bank-accounts/enums/external-connection-type.enum';
 import { BankConnection } from './entities/bank-connection.entity';
 import { AbnAmroTokenResponse } from './dto/abn-amro-token.dto';
@@ -38,7 +37,7 @@ export class AbnAmroTokenService {
    */
   private readonly pendingStates = new Map<
     string,
-    { userId: string; bankAccountId: string; createdAt: Date }
+    { bankAccountId: string; createdAt: Date }
   >();
 
   private readonly authUrl: string;
@@ -51,7 +50,6 @@ export class AbnAmroTokenService {
   constructor(
     private readonly httpService: HttpService,
     configService: ConfigService,
-    private readonly bankAccountsService: BankAccountsService,
     @InjectRepository(BankConnection)
     private readonly connectionRepository: Repository<BankConnection>,
   ) {
@@ -79,20 +77,10 @@ export class AbnAmroTokenService {
     );
   }
 
-  async getAuthorizationUrl(
-    userId: string,
-    accountNumber: string,
-  ): Promise<string> {
-    const bankAccount =
-      await this.bankAccountsService.findOrCreateByAccountNumber(
-        accountNumber,
-        userId,
-      );
-
+  getAuthorizationUrl(bankAccountId: string): string {
     const state = crypto.randomBytes(16).toString('hex');
     this.pendingStates.set(state, {
-      userId,
-      bankAccountId: bankAccount.id,
+      bankAccountId,
       createdAt: new Date(),
     });
 

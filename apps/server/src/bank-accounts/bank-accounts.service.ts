@@ -5,7 +5,6 @@ import { BankAccount } from './entities/bank-account.entity';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { EntityConflictException } from '../common/exceptions/conflict.exception';
-import { NotAuthorizedException } from '../common/exceptions/not-authorized.exception';
 import { ISeeder } from '../seeds/seeder';
 import { User } from '../users/entities/user.entity';
 import { SEED_BANK_ACCOUNT, SEED_USER } from '../seeds/seed-data';
@@ -57,45 +56,6 @@ export class BankAccountsService implements ISeeder {
     const bankAccount = await this.findOne(id);
 
     bankAccount.accountName = dto.accountName ?? bankAccount.accountName;
-
-    return this.bankAccountsRepository.save(bankAccount);
-  }
-
-  /**
-   * Return the bank account with the given account number, or create it if it
-   * does not yet exist.
-   *
-   * @param {string} accountNumber The IBAN account number to look up or create.
-   * @param {string} userId The ID of the authenticated user. Used as the owner
-   *  when creating a new account, verified against the existing owner when the
-   *  account already exists.
-   * @returns {BankAccount} The existing or newly created bank account.
-   *
-   * @throws {NotAuthorizedException} The account belongs to a different user.
-   */
-  async findOrCreateByAccountNumber(
-    accountNumber: string,
-    userId: string,
-  ): Promise<BankAccount> {
-    const existing = await this.bankAccountsRepository.findOneBy({
-      accountNumber,
-    });
-
-    if (existing) {
-      if (existing.userId !== userId) {
-        throw new NotAuthorizedException(
-          `Bank account "${accountNumber}" does not belong to this user.`,
-        );
-      }
-
-      return existing;
-    }
-
-    const bankAccount = this.bankAccountsRepository.create({
-      accountNumber,
-      accountName: accountNumber,
-      userId,
-    });
 
     return this.bankAccountsRepository.save(bankAccount);
   }

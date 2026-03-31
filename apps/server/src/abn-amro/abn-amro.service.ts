@@ -28,14 +28,10 @@ export class AbnAmroService {
   ) {}
 
   async syncTransactions(
-    accountNumber: string,
-    userId: string,
+    bankAccountId: string,
   ): Promise<{ imported: number; skipped: number }> {
-    const bankAccount =
-      await this.bankAccountsService.findOrCreateByAccountNumber(
-        accountNumber,
-        userId,
-      );
+    const bankAccount = await this.bankAccountsService.findOne(bankAccountId);
+    const { accountNumber } = bankAccount;
 
     const connection = await this.tokenService.getConnectionForBankAccount(
       bankAccount.id,

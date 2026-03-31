@@ -5,11 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{API}}/abn-amro/sync?accountNumber=NL58ABNA9999142181"
-  params:
-    - name: accountNumber
-      value: NL58ABNA9999142181
-      type: query
+  url: "{{API}}/bank-accounts/{{test_bank_account}}/abn-amro/transactions"
   auth: inherit
 
 settings:
