@@ -192,7 +192,7 @@ export default function Insights() {
 
               {/* Category Section Header */}
               <View className="flex-row items-center justify-between px-4 mb-3">
-                <View className="bg-cards rounded-full px-5 py-2 border border-border shadow-sm">
+                <View className="px-5 py-2">
                   <Text className="text-tPrimary font-semibold text-base">
                     {activeTab === "spendings" ? "Your spendings" : "Your income"}
                   </Text>
