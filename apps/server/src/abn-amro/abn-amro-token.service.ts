@@ -12,6 +12,7 @@ import { Repository } from 'typeorm';
 import { ExternalServiceException } from '../common/exceptions/external-service.exception';
 import { NotAuthorizedException } from '../common/exceptions/not-authorized.exception';
 import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
+import { ExternalConnectionType } from '../bank-accounts/enums/external-connection-type.enum';
 import { BankConnection } from './entities/bank-connection.entity';
 import { AbnAmroTokenResponse } from './dto/abn-amro-token.dto';
 
@@ -261,6 +262,7 @@ export class AbnAmroTokenService {
     await this.connectionRepository.upsert(
       {
         bankAccountId,
+        type: ExternalConnectionType.AbnAmro,
         accessToken: plainAccessToken,
         refreshToken: plainRefreshToken,
         expiresAt,

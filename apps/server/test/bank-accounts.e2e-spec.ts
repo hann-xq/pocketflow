@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
@@ -5,12 +6,14 @@ import { DataSource } from 'typeorm';
 import { createTestApp, getToken } from './test-utils';
 import { BankAccountsModule } from '../src/bank-accounts/bank-accounts.module';
 import { BankAccountsService } from '../src/bank-accounts/bank-accounts.service';
+import { ExternalConnectionType } from '../src/bank-accounts/enums/external-connection-type.enum';
 import { UsersModule } from '../src/users/users.module';
 import { UsersService } from '../src/users/users.service';
 import { TransactionsModule } from '../src/transactions/transactions.module';
 import { CategoriesModule } from '../src/categories/categories.module';
 import { CategoriesService } from '../src/categories/categories.service';
 import { SeederService } from '../src/seeds/seeder.service';
+import { BankConnection } from '../src/abn-amro/entities/bank-connection.entity';
 import { SEED_BANK_ACCOUNT, SEED_USER } from '../src/seeds/seed-data';
 
 // A valid Dutch IBAN used for tests that create their own bank account
@@ -25,17 +28,21 @@ describe('BankAccounts (e2e)', () => {
   let token: string;
 
   beforeAll(async () => {
+    process.env['ENCRYPTION_KEY'] = crypto.randomBytes(32).toString('hex');
+
     app = await createTestApp([
       UsersModule,
       BankAccountsModule,
       TransactionsModule,
       CategoriesModule,
     ]);
+
     dataSource = app.get(DataSource);
   });
 
   afterAll(async () => {
     await app.close();
+    delete process.env['ENCRYPTION_KEY'];
   });
 
   beforeEach(async () => {
@@ -57,6 +64,16 @@ describe('BankAccounts (e2e)', () => {
 
     token = await getToken(app);
   });
+
+  async function connectBankAccount(accountId: string): Promise<void> {
+    await dataSource.getRepository(BankConnection).save({
+      bankAccountId: accountId,
+      type: ExternalConnectionType.AbnAmro,
+      accessToken: 'test-token',
+      refreshToken: null,
+      expiresAt: new Date(Date.now() + 3600 * 1000),
+    });
+  }
 
   // Creates a second user with their own bank account (ACCOUNT_NUMBER).
   // Used by tests that verify cross-user access is forbidden.
@@ -103,6 +120,8 @@ describe('BankAccounts (e2e)', () => {
       expect(res.body.accountNumber).toBe(ACCOUNT_NUMBER);
       expect(res.body.accountName).toBe('Checking');
       expect(res.body.userId).toBe(userId);
+      expect(res.body.connectionType).toBeNull();
+      expect(res.body).not.toHaveProperty('bankConnection');
     });
 
     it('returns 409 for duplicate account number', async () => {
@@ -212,6 +231,7 @@ describe('BankAccounts (e2e)', () => {
         .expect(200);
 
       expect(res.body).toHaveLength(2);
+      expect(res.body[0]).not.toHaveProperty('bankConnection');
     });
 
     it('only returns bank accounts belonging to the specified user', async () => {
@@ -225,6 +245,19 @@ describe('BankAccounts (e2e)', () => {
       // Only the seeded account belongs to userId
       expect(res.body).toHaveLength(1);
       expect(res.body[0].userId).toBe(userId);
+      expect(res.body[0]).not.toHaveProperty('bankConnection');
+    });
+
+    it('returns connectionType abn-amro and omits bankConnection when connected', async () => {
+      await connectBankAccount(bankAccountId);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/users/${userId}/bank-accounts`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body[0].connectionType).toBe(ExternalConnectionType.AbnAmro);
+      expect(res.body[0]).not.toHaveProperty('bankConnection');
     });
 
     it('returns 403 when accessing another user bank accounts', async () => {
@@ -253,6 +286,20 @@ describe('BankAccounts (e2e)', () => {
 
       expect(res.body.accountNumber).toBe(SEED_BANK_ACCOUNT.accountNumber);
       expect(res.body.accountName).toBe(SEED_BANK_ACCOUNT.accountName);
+      expect(res.body.connectionType).toBeNull();
+      expect(res.body).not.toHaveProperty('bankConnection');
+    });
+
+    it('returns connectionType abn-amro and omits bankConnection when connected', async () => {
+      await connectBankAccount(bankAccountId);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body.connectionType).toBe(ExternalConnectionType.AbnAmro);
+      expect(res.body).not.toHaveProperty('bankConnection');
     });
 
     it('returns 403 when accessing another user bank account', async () => {
@@ -288,6 +335,21 @@ describe('BankAccounts (e2e)', () => {
         .expect(200);
 
       expect(res.body.accountName).toBe('Main Account');
+      expect(res.body.connectionType).toBeNull();
+      expect(res.body).not.toHaveProperty('bankConnection');
+    });
+
+    it('returns connectionType abn-amro and omits bankConnection when connected', async () => {
+      await connectBankAccount(bankAccountId);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ accountName: 'Main Account' })
+        .expect(200);
+
+      expect(res.body.connectionType).toBe(ExternalConnectionType.AbnAmro);
+      expect(res.body).not.toHaveProperty('bankConnection');
     });
 
     it('returns 400 when attempting to change the account number', async () => {
