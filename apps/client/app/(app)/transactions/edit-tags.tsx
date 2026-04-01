@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import "../global.css";
 import { api } from "@/lib/api";
 import type { ApiTag, ApiTransaction } from "@/lib/types";
 

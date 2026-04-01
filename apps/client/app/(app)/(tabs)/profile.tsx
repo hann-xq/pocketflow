@@ -4,7 +4,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { WebViewNavigation } from "react-native-webview";
-import "../global.css";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
