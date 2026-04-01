@@ -9,4 +9,10 @@ export class TagResponseDto {
 
   @ApiProperty({ example: 'essential' })
   name: string;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
 }

@@ -26,4 +26,10 @@ export class BankAccountResponseDto {
     example: ExternalConnectionType.AbnAmro,
   })
   connectionType: ExternalConnectionType | null;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
 }

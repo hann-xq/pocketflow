@@ -51,4 +51,10 @@ export class TransactionResponseDto {
   @ApiProperty({ type: () => [TagResponseDto] })
   @Type(() => TagResponseDto)
   tags: TagResponseDto[];
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
 }

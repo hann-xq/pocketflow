@@ -9,6 +9,7 @@ import { UsersModule } from '../src/users/users.module';
 import { UsersService } from '../src/users/users.service';
 import { SeederService } from '../src/seeds/seeder.service';
 import { SEED_TAGS, SEED_USER } from '../src/seeds/seed-data';
+import { Tag } from '../src/tags/entities/tag.entity';
 
 describe('Tags (e2e)', () => {
   let app: INestApplication<App>;
@@ -168,6 +169,23 @@ describe('Tags (e2e)', () => {
         .expect(200);
 
       expect(res.body.name).toBe('updated-tag');
+    });
+
+    it('updates updatedAt after a PATCH', async () => {
+      const pastTime = new Date(Date.now() - 5000);
+      await dataSource
+        .getRepository(Tag)
+        .update(tagId, { updatedAt: pastTime });
+
+      const patched = await request(app.getHttpServer())
+        .patch(`/api/v1/tags/${tagId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'updated-tag' })
+        .expect(200);
+
+      expect(
+        new Date(patched.body.updatedAt as string).getTime(),
+      ).toBeGreaterThan(pastTime.getTime());
     });
 
     it('returns 409 when renaming to an existing tag name', async () => {

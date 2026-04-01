@@ -14,6 +14,7 @@ import { CategoriesModule } from '../src/categories/categories.module';
 import { CategoriesService } from '../src/categories/categories.service';
 import { SeederService } from '../src/seeds/seeder.service';
 import { BankConnection } from '../src/abn-amro/entities/bank-connection.entity';
+import { BankAccount } from '../src/bank-accounts/entities/bank-account.entity';
 import { SEED_BANK_ACCOUNT, SEED_USER } from '../src/seeds/seed-data';
 
 // A valid Dutch IBAN used for tests that create their own bank account
@@ -350,6 +351,23 @@ describe('BankAccounts (e2e)', () => {
 
       expect(res.body.connectionType).toBe(ExternalConnectionType.AbnAmro);
       expect(res.body).not.toHaveProperty('bankConnection');
+    });
+
+    it('updates updatedAt after a PATCH', async () => {
+      const pastTime = new Date(Date.now() - 5000);
+      await dataSource
+        .getRepository(BankAccount)
+        .update(bankAccountId, { updatedAt: pastTime });
+
+      const patched = await request(app.getHttpServer())
+        .patch(`/api/v1/bank-accounts/${bankAccountId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ accountName: 'Updated Name' })
+        .expect(200);
+
+      expect(
+        new Date(patched.body.updatedAt as string).getTime(),
+      ).toBeGreaterThan(pastTime.getTime());
     });
 
     it('returns 400 when attempting to change the account number', async () => {
