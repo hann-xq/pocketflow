@@ -47,14 +47,20 @@ See [apps/server/README.md](apps/server/README.md) for the full OAuth2 flow and 
 
 ### Client
 
-The client API base URL is hardcoded in [apps/client/lib/api.ts](apps/client/lib/api.ts):
+The client API base URL is configured via an environment variable in [apps/client/.env](apps/client/.env):
 
-```ts
-const BASE_URL = "http://10.0.2.2:3000/api/v1";
+```
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000/api/v1
 ```
 
-`10.0.2.2` is the Android emulator's alias for the host machine. Change this if you are running on a physical device or
-iOS simulator.
+`10.0.2.2` is the Android emulator's alias for the host machine, and requires port forwarding via adb:
+
+```bash
+adb reverse tcp:3000 tcp:3000
+```
+
+When running on a physical device or iOS simulator, override the URL in `apps/client/.env.local` (gitignored) with your
+machine's local IP address instead.
 
 Install the client dependencies:
 

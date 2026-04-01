@@ -1,4 +1,4 @@
-const BASE_URL = "http://10.0.2.2:3000/api/v1";
+const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 type RequestOptions = Omit<RequestInit, "method" | "body">;
 type QueryParams = Record<string, string | number | boolean | undefined>;
