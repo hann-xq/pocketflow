@@ -1,11 +1,13 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Transaction } from '../../transactions/entities/transaction.entity';
 import { User } from '../../users/entities/user.entity';
@@ -28,4 +30,10 @@ export class Tag {
 
   @ManyToMany(() => Transaction, (transaction) => transaction.tags)
   transactions: Transaction[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

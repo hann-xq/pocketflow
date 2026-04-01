@@ -1,11 +1,13 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Exclude, Expose } from 'class-transformer';
 import { User } from '../../users/entities/user.entity';
@@ -45,4 +47,10 @@ export class BankAccount {
   get connectionType(): ExternalConnectionType | null {
     return this.bankConnection?.type ?? null;
   }
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

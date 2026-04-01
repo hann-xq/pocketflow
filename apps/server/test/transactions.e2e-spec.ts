@@ -597,6 +597,33 @@ describe('Transactions (e2e)', () => {
       expect(res.body.category.type).toBe(CategoryType.INCOME);
     });
 
+    it('updates updatedAt after a PATCH', async () => {
+      const created = await request(app.getHttpServer())
+        .post(`/api/v1/bank-accounts/${bankAccountId}/transactions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          amount: -10,
+          date: '2024-01-01',
+          categoryId: expenseCategoryId,
+        })
+        .expect(201);
+
+      const pastTime = new Date(Date.now() - 5000);
+      await dataSource
+        .getRepository(Transaction)
+        .update(created.body.id as string, { updatedAt: pastTime });
+
+      const patched = await request(app.getHttpServer())
+        .patch(`/api/v1/transactions/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ amount: -20 })
+        .expect(200);
+
+      expect(
+        new Date(patched.body.updatedAt as string).getTime(),
+      ).toBeGreaterThan(pastTime.getTime());
+    });
+
     it('returns 403 when updating another user transaction', async () => {
       const { otherTxId } = await setupOtherUserWithTransaction();
 
