@@ -109,3 +109,19 @@ test-server:
         - apps/server/junit-e2e.xml
     expire_in: 30 days
   coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+
+test-client:
+  extends: .client
+  stage: test
+  needs: [ npm-install-client ]
+  variables:
+    JEST_JUNIT_OUTPUT_FILE: junit-client.xml
+  script:
+    - cd apps/client
+    - npm run test:ci
+  artifacts:
+    paths:
+      - apps/client/junit-client.xml
+    reports:
+      junit: apps/client/junit-client.xml
+    expire_in: 30 days
