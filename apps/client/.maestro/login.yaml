@@ -1,0 +1,19 @@
+appId: com.pocketflow.app
+---
+# Start with a clean state so no stored token can skip the login screen.
+- launchApp:
+    clearState: true
+
+- assertVisible: "Welcome to PocketFlow"
+
+# Submitting the form with empty fields must show a validation error.
+- tapOn: "Sign in"
+- assertVisible: "Please enter your email and password."
+
+# Entering valid credentials and signing in must navigate to the main screen.
+- tapOn: "Email"
+- inputText: "test@example.com"
+- tapOn: "Password"
+- inputText: "password123"
+- tapOn: Done
+- assertVisible: "Your spendings"
