@@ -26,10 +26,15 @@ export type ApiCategory = {
   description: string;
 };
 
+export enum ExternalConnectionType {
+  AbnAmro = "abn-amro",
+}
+
 export type ApiBankAccount = {
   id: string;
   accountName: string;
   accountNumber: string;
+  connectionType: ExternalConnectionType | null;
 };
 
 export type TransactionForm = {

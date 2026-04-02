@@ -1,4 +1,4 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const BASE_URL = process.env.EXPO_PUBLIC_API;
 
 type RequestOptions = Omit<RequestInit, "method" | "body">;
 type QueryParams = Record<string, string | number | boolean | undefined>;
@@ -32,7 +32,7 @@ class API {
    * buildUrl('/users', { page: 1 }) → /users?page=1
    */
   private buildUrl(path: string, params?: QueryParams): string {
-    const url = new URL(`${BASE_URL}${path}`);
+    const url = new URL(`${BASE_URL}/api/v1${path}`);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -111,6 +111,26 @@ class API {
 
   delete<T>(path: string, params?: QueryParams, options?: RequestOptions) {
     return this.request<T>("DELETE", path, undefined, params, options);
+  }
+
+  async abnAmroAuthCallback(code: string, state: string | null): Promise<void> {
+    const url = new URL(`${BASE_URL}/auth`);
+    url.searchParams.set("code", code);
+    if (state) url.searchParams.set("state", state);
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
+      throw {
+        status: response.status,
+        message: data?.message || response.statusText,
+      };
+    }
   }
 
 }

@@ -1,40 +1,22 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import {
-  Alert,
-  FlatList,
-  Modal,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import type { WebViewNavigation } from "react-native-webview";
 import "../global.css";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import {
+  validateIban,
+  type ExternalConnectionSession,
+  type BankAccountFormState,
+  type ModalMode,
+} from "@/lib/bank-account-utils";
 import type { ApiBankAccount } from "@/lib/types";
-
-type BankAccountFormState = {
-  accountName: string;
-  accountNumber: string;
-};
-
-type ModalMode = { type: "create" } | { type: "edit"; account: ApiBankAccount };
-
-// 2-letter country code + 2-digit check number + 4-char bank code + 10-digit account number
-const IBAN_REGEX = /^[A-Z]{2}\d{2}[A-Z]{4}\d{10}$/;
-
-function validateIban(value: string): string | null {
-  const iban = value.replace(/\s/g, "");
-  if (!iban) return "Account number is required.";
-  if (!/^[A-Z]{2}/.test(iban)) return "IBAN must start with a 2-letter country code (e.g. NL).";
-  if (!/^[A-Z]{2}\d{2}/.test(iban)) return "Country code must be followed by 2 check digits.";
-  if (!IBAN_REGEX.test(iban))
-    return "Invalid IBAN format. Expected: 2-letter country code, 2 check digits, 4-letter bank code, 10-digit account number.";
-  return null;
-}
+import { AbnAmroWebViewModal } from "@/components/profile/AbnAmroWebViewModal";
+import { BankAccountFormModal } from "@/components/profile/BankAccountFormModal";
+import { BankAccountItem } from "@/components/BankAccountItem";
 
 function getErrorMessage(err: unknown, action: string): string {
   const e = err as { status?: number; message?: string };
@@ -47,48 +29,6 @@ function getErrorMessage(err: unknown, action: string): string {
   return `Failed to ${action} bank account. Please try again.`;
 }
 
-function BankAccountItem({
-  item,
-  onEdit,
-  onDelete,
-}: {
-  item: ApiBankAccount;
-  onEdit: (item: ApiBankAccount) => void;
-  onDelete: (item: ApiBankAccount) => void;
-}) {
-  return (
-    <View
-      className="flex-row items-center px-4 py-3 bg-cards border-b border-border"
-      accessible={true}
-      accessibilityLabel={`${item.accountName}, ${item.accountNumber}`}
-    >
-      <View className="w-10 h-10 rounded-full bg-accent items-center justify-center mr-3">
-        <MaterialCommunityIcons name="bank-outline" size={20} color="#fff" />
-      </View>
-      <View className="flex-1">
-        <Text className="text-tPrimary text-base">{item.accountName}</Text>
-        <Text className="text-tSecondary text-xs">{item.accountNumber}</Text>
-      </View>
-      <TouchableOpacity
-        onPress={() => onEdit(item)}
-        className="p-2"
-        accessibilityRole="button"
-        accessibilityLabel={`Edit ${item.accountName}`}
-      >
-        <MaterialCommunityIcons name="pencil-outline" size={20} color="#64748B" />
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => onDelete(item)}
-        className="p-2"
-        accessibilityRole="button"
-        accessibilityLabel={`Delete ${item.accountName}`}
-      >
-        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 export default function Profile() {
   const { userId, logout } = useAuth();
   const queryClient = useQueryClient();
@@ -96,6 +36,10 @@ export default function Profile() {
   const [modalMode, setModalMode] = useState<ModalMode | null>(null);
   const [form, setForm] = useState<BankAccountFormState>({ accountName: "", accountNumber: "" });
   const [ibanError, setIbanError] = useState<string | null>(null);
+
+  const [abnAmroSession, setAbnAmroSession] = useState<ExternalConnectionSession | null>(null);
+  const [isLoadingAuthUrl, setIsLoadingAuthUrl] = useState(false);
+  const [isExchangingCode, setIsExchangingCode] = useState(false);
 
   const { data: bankAccounts = [], isLoading, error } = useQuery({
     queryKey: ["bank-accounts", userId],
@@ -111,9 +55,7 @@ export default function Profile() {
       setModalMode(null);
       Alert.alert("Success", "Bank account created successfully.");
     },
-    onError: (err) => {
-      Alert.alert("Error", getErrorMessage(err, "create"));
-    },
+    onError: (err) => Alert.alert("Error", getErrorMessage(err, "create")),
   });
 
   const editMutation = useMutation({
@@ -124,9 +66,7 @@ export default function Profile() {
       setModalMode(null);
       Alert.alert("Success", "Bank account updated successfully.");
     },
-    onError: (err) => {
-      Alert.alert("Error", getErrorMessage(err, "update"));
-    },
+    onError: (err) => Alert.alert("Error", getErrorMessage(err, "update")),
   });
 
   const deleteMutation = useMutation({
@@ -135,10 +75,91 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
       Alert.alert("Success", "Bank account deleted successfully.");
     },
+    onError: (err) => Alert.alert("Error", getErrorMessage(err, "delete")),
+  });
+
+  const removeAbnAmroMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/bank-accounts/${id}/abn-amro/connection`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
+      Alert.alert("Success", "ABN AMRO connection removed.");
+    },
     onError: (err) => {
-      Alert.alert("Error", getErrorMessage(err, "delete"));
+      const e = err as { message?: string };
+      Alert.alert("Error", e?.message ?? "Failed to remove ABN AMRO connection.");
     },
   });
+
+  const syncAbnAmroMutation = useMutation({
+    mutationFn: (id: string) =>
+      api.post<{ imported: number; skipped: number }>(`/bank-accounts/${id}/abn-amro/transactions`),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
+      Alert.alert("Sync complete", `Imported: ${data.imported}, skipped: ${data.skipped}`);
+    },
+    onError: (err) => {
+      const e = err as { status?: number; message?: string };
+      if (e?.status === 401) {
+        Alert.alert("Error", "Not authorized. Please reconnect ABN AMRO.");
+      } else {
+        Alert.alert("Error", e?.message ?? "Failed to sync transactions.");
+      }
+    },
+  });
+
+  async function handleConnectAbnAmro(item: ApiBankAccount) {
+    setIsLoadingAuthUrl(true);
+    try {
+      const { authorizationUrl } = await api.get<{ authorizationUrl: string }>(
+        `/bank-accounts/${item.id}/abn-amro/authorization`
+      );
+      setAbnAmroSession({ authorizationUrl, accountId: item.id });
+    } catch (err) {
+      const e = err as { message?: string };
+      Alert.alert("Error", e?.message ?? "Failed to start ABN AMRO connection. Please try again.");
+    } finally {
+      setIsLoadingAuthUrl(false);
+    }
+  }
+
+  function handleWebViewNavigation(navState: WebViewNavigation): boolean {
+    if (!abnAmroSession || !navState.url.startsWith("https://localhost")) {
+      return true;
+    }
+
+    const url = new URL(navState.url);
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+
+    if (!code) {
+      setAbnAmroSession(null);
+      Alert.alert("Error", "ABN AMRO did not return an authorization code.");
+      return false;
+    }
+
+    setIsExchangingCode(true);
+    api
+      .abnAmroAuthCallback(code, state)
+      .then(() => {
+        setAbnAmroSession(null);
+        queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
+        Alert.alert("Success", "ABN AMRO account connected successfully.");
+      })
+      .catch((err) => {
+        setAbnAmroSession(null);
+        const e = err as { status?: number; message?: string };
+        if (e?.status === 400) {
+          Alert.alert("Error", "Invalid or missing authorization code.");
+        } else if (e?.status === 401) {
+          Alert.alert("Error", "Authorization session expired. Please try again.");
+        } else {
+          Alert.alert("Error", e?.message ?? "Failed to complete ABN AMRO connection.");
+        }
+      })
+      .finally(() => setIsExchangingCode(false));
+
+    return false;
+  }
 
   function openCreate() {
     setForm({ accountName: "", accountNumber: "" });
@@ -158,10 +179,21 @@ export default function Profile() {
       `Are you sure you want to delete "${account.accountName}"?`,
       [
         { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(account.id) },
+      ]
+    );
+  }
+
+  function handleRemoveAbnAmro(account: ApiBankAccount) {
+    Alert.alert(
+      "Remove ABN AMRO Connection",
+      `Remove ABN AMRO connection for "${account.accountName}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
         {
-          text: "Delete",
+          text: "Remove",
           style: "destructive",
-          onPress: () => deleteMutation.mutate(account.id),
+          onPress: () => removeAbnAmroMutation.mutate(account.id),
         },
       ]
     );
@@ -181,9 +213,6 @@ export default function Profile() {
     }
   }
 
-  const isSubmitting = createMutation.isPending || editMutation.isPending;
-  const isCreate = modalMode?.type === "create";
-
   return (
     <SafeAreaProvider>
       <SafeAreaView className="flex-1 bg-background">
@@ -191,7 +220,15 @@ export default function Profile() {
           data={bankAccounts}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <BankAccountItem item={item} onEdit={openEdit} onDelete={handleDelete} />
+            <BankAccountItem
+              item={item}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              onConnectExternalConnection={handleConnectAbnAmro}
+              onRemoveExternalConnection={handleRemoveAbnAmro}
+              onSyncExternalConnection={(account) => syncAbnAmroMutation.mutate(account.id)}
+              isSyncing={syncAbnAmroMutation.isPending && syncAbnAmroMutation.variables === item.id}
+            />
           )}
           ListHeaderComponent={
             <View className="flex-row items-center justify-between px-4 py-3">
@@ -245,74 +282,24 @@ export default function Profile() {
           <Text className="text-white font-semibold">Log Out</Text>
         </TouchableOpacity>
 
-        <Modal
-          visible={modalMode !== null}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setModalMode(null)}
-        >
-          <View className="flex-1 justify-end bg-black/50">
-            <View className="bg-background rounded-t-2xl px-6 pt-6 pb-10">
-              <View className="flex-row items-center justify-between mb-6">
-                <Text className="text-tPrimary text-xl font-semibold">
-                  {isCreate ? "New Bank Account" : "Edit Bank Account"}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setModalMode(null)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close"
-                >
-                  <MaterialCommunityIcons name="close" size={24} color="#64748B" />
-                </TouchableOpacity>
-              </View>
+        <AbnAmroWebViewModal
+          session={abnAmroSession}
+          isLoadingAuthUrl={isLoadingAuthUrl}
+          isExchangingCode={isExchangingCode}
+          onClose={() => setAbnAmroSession(null)}
+          onNavigation={handleWebViewNavigation}
+        />
 
-              <Text className="text-tSecondary text-sm mb-1">Account Name</Text>
-              <TextInput
-                className="bg-cards border border-border rounded-lg px-4 py-3 text-tPrimary mb-4"
-                value={form.accountName}
-                onChangeText={(v) => setForm((f) => ({ ...f, accountName: v }))}
-                placeholder="My Checking Account"
-                placeholderTextColor="#64748B"
-                autoCapitalize="words"
-              />
-
-              {isCreate && (
-                <>
-                  <Text className="text-tSecondary text-sm mb-1">Account Number (IBAN)</Text>
-                  <TextInput
-                    className={`bg-cards border rounded-lg px-4 py-3 text-tPrimary ${ibanError ? "border-red-500 mb-1" : "border-border mb-6"}`}
-                    value={form.accountNumber}
-                    onChangeText={(v) => {
-                      setForm((f) => ({ ...f, accountNumber: v.toUpperCase() }));
-                      setIbanError(null);
-                    }}
-                    placeholder="NL91ABNA0417164300"
-                    placeholderTextColor="#64748B"
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                  />
-                  {ibanError && (
-                    <Text className="text-red-500 text-xs mb-6" accessibilityRole="alert">
-                      {ibanError}
-                    </Text>
-                  )}
-                </>
-              )}
-
-              <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={isSubmitting}
-                className={`py-3 rounded-lg items-center mt-2 ${isSubmitting ? "bg-accent/50" : "bg-accent"}`}
-                accessibilityRole="button"
-                accessibilityLabel={isCreate ? "Create bank account" : "Save changes"}
-              >
-                <Text className="text-white font-semibold">
-                  {isSubmitting ? "Saving..." : isCreate ? "Create Account" : "Save Changes"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+        <BankAccountFormModal
+          mode={modalMode}
+          form={form}
+          onChangeForm={(update) => setForm((f) => ({ ...f, ...update }))}
+          ibanError={ibanError}
+          onClearIbanError={() => setIbanError(null)}
+          onClose={() => setModalMode(null)}
+          onSubmit={handleSubmit}
+          isSubmitting={createMutation.isPending || editMutation.isPending}
+        />
       </SafeAreaView>
     </SafeAreaProvider>
   );
