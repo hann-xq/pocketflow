@@ -7,7 +7,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { CategoryType } from '../categories/enums/category-type.enum';
 import { AbnAmroTokenService } from './abn-amro-token.service';
 import { AbnAmroApiClient, TokenExpiredError } from './abn-amro-api.client';
-import { AbnAmroTransaction } from './dto/abn-amro-transaction.dto';
+import { AbnAmroActivity } from './dto/abn-amro-activity.dto';
 
 /**
  * Orchestrates ABN AMRO transaction sync: resolves the bank account and access
@@ -41,12 +41,12 @@ export class AbnAmroService {
       CategoryType.EXPENSE,
     );
 
-    this.logger.log(`Fetching transactions for account ${accountNumber}...`);
+    this.logger.log(`Fetching activities for account ${accountNumber}...`);
 
-    let abnTransactions: AbnAmroTransaction[];
+    let abnActivities: AbnAmroActivity[];
 
     try {
-      abnTransactions = await this.apiClient.fetchTransactions(
+      abnActivities = await this.apiClient.fetchActivities(
         connection.accessToken,
         accountNumber,
       );
@@ -64,7 +64,7 @@ export class AbnAmroService {
         await this.tokenService.refreshAccessToken(connection);
 
       try {
-        abnTransactions = await this.apiClient.fetchTransactions(
+        abnActivities = await this.apiClient.fetchActivities(
           newAccessToken,
           accountNumber,
         );
@@ -86,9 +86,9 @@ export class AbnAmroService {
       }
     }
 
-    this.logger.log(`Received ${abnTransactions.length} transactions from API`);
+    this.logger.log(`Received ${abnActivities.length} activities from API`);
 
-    const entities = abnTransactions.map((t) =>
+    const entities = abnActivities.map((t) =>
       this.mapToEntity(t, accountNumber, bankAccount.id, category.id),
     );
 
@@ -112,32 +112,37 @@ export class AbnAmroService {
 
     const skipped = entities.length - newEntities.length;
     this.logger.log(
-      `Imported ${newEntities.length} transactions, skipped ${skipped} duplicates`,
+      `Imported ${newEntities.length} activities, skipped ${skipped} duplicates`,
     );
 
     return { imported: newEntities.length, skipped };
   }
 
   private mapToEntity(
-    abnTransaction: AbnAmroTransaction,
+    activity: AbnAmroActivity,
     accountNumber: string,
     bankAccountId: string,
     categoryId: string,
   ): Partial<Transaction> {
+    const amount =
+      activity.creditDebitIndicator === 'DBIT'
+        ? -Math.abs(activity.amount)
+        : Math.abs(activity.amount);
+
     return {
       externalId:
-        abnTransaction.transactionId ||
+        activity.id ||
         [
           accountNumber,
-          abnTransaction.bookDate,
-          abnTransaction.amount,
-          abnTransaction.counterPartyAccountNumber ?? '',
+          activity.bookDate,
+          activity.amount,
+          activity.counterPartyAccountNumber ?? '',
         ].join('|'),
-      description: abnTransaction.descriptionLines?.join('\n') ?? null,
-      amount: abnTransaction.amount,
-      date: abnTransaction.bookDate,
-      counterpartyName: abnTransaction.counterPartyName ?? null,
-      counterpartyAccount: abnTransaction.counterPartyAccountNumber ?? null,
+      description: activity.descriptionLines?.join('\n') ?? null,
+      amount,
+      date: activity.bookDate,
+      counterpartyName: activity.counterPartyName ?? null,
+      counterpartyAccount: activity.counterPartyAccountNumber ?? null,
       categoryId,
       bankAccountId,
       tags: [],

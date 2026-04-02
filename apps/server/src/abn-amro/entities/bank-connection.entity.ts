@@ -50,4 +50,7 @@ export class BankConnection {
 
   @Column({ name: 'expires_at' })
   expiresAt: Date;
+
+  @Column({ name: 'consent_expires_at', type: Date, nullable: true })
+  consentExpiresAt: Date | null;
 }

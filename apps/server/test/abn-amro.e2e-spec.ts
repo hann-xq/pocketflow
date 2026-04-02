@@ -141,30 +141,33 @@ describe('AbnAmro (e2e)', () => {
           data: {
             accountNumber: ACCOUNT_NUMBER,
             nextPageKey: null,
-            transactions: [
-              {
-                transactionId: 'tx-001',
-                bookDate: '2024-01-15',
-                amount: -25.5,
-                currencyCode: 'EUR',
-                description: 'Coffee shop',
-                counterPartyAccountNumber: 'NL99CAFE0000000001',
-                counterPartyName: 'Koffie & Zo',
-                transactionType: 'DEBIT',
-                mutationCode: 'GM',
-              },
-              {
-                transactionId: 'tx-002',
-                bookDate: '2024-01-16',
-                amount: 1500,
-                currencyCode: 'EUR',
-                description: 'Salary',
-                counterPartyAccountNumber: 'NL99WORK0000000001',
-                counterPartyName: 'Employer BV',
-                transactionType: 'CREDIT',
-                mutationCode: 'OV',
-              },
-            ],
+            activities: {
+              booked: [
+                {
+                  id: 'tx-001',
+                  bookDate: '2024-01-15',
+                  amount: 25.5,
+                  currency: 'EUR',
+                  creditDebitIndicator: 'DBIT',
+                  descriptionLines: ['Coffee shop'],
+                  counterPartyAccountNumber: 'NL99CAFE0000000001',
+                  counterPartyName: 'Koffie & Zo',
+                  mutationCode: 'GM',
+                },
+                {
+                  id: 'tx-002',
+                  bookDate: '2024-01-16',
+                  amount: 1500,
+                  currency: 'EUR',
+                  creditDebitIndicator: 'CRDT',
+                  descriptionLines: ['Salary'],
+                  counterPartyAccountNumber: 'NL99WORK0000000001',
+                  counterPartyName: 'Employer BV',
+                  mutationCode: 'OV',
+                },
+              ],
+              reservations: [],
+            },
           },
           status: 200,
           statusText: 'OK',
@@ -185,25 +188,26 @@ describe('AbnAmro (e2e)', () => {
     });
 
     it('skips duplicate transactions on a second sync', async () => {
-      const mockTransactions = [
-        {
-          transactionId: 'tx-001',
-          bookDate: '2024-01-15',
-          amount: -25.5,
-          currencyCode: 'EUR',
-          description: 'Coffee shop',
-          counterPartyAccountNumber: 'NL99CAFE0000000001',
-          counterPartyName: 'Koffie & Zo',
-          transactionType: 'DEBIT',
-          mutationCode: 'GM',
-        },
-      ];
-
       const mockResponse = of({
         data: {
           accountNumber: ACCOUNT_NUMBER,
           nextPageKey: null,
-          transactions: mockTransactions,
+          activities: {
+            booked: [
+              {
+                id: 'tx-001',
+                bookDate: '2024-01-15',
+                amount: 25.5,
+                currency: 'EUR',
+                creditDebitIndicator: 'DBIT',
+                descriptionLines: ['Coffee shop'],
+                counterPartyAccountNumber: 'NL99CAFE0000000001',
+                counterPartyName: 'Koffie & Zo',
+                mutationCode: 'GM',
+              },
+            ],
+            reservations: [],
+          },
         },
         status: 200,
         statusText: 'OK',
@@ -239,19 +243,22 @@ describe('AbnAmro (e2e)', () => {
           data: {
             accountNumber: ACCOUNT_NUMBER,
             nextPageKey: null,
-            transactions: [
-              {
-                transactionId: 'tx-003',
-                bookDate: '2024-02-01',
-                amount: -10,
-                currencyCode: 'EUR',
-                description: 'Test',
-                counterPartyAccountNumber: '',
-                counterPartyName: '',
-                transactionType: 'DEBIT',
-                mutationCode: 'GM',
-              },
-            ],
+            activities: {
+              booked: [
+                {
+                  id: 'tx-003',
+                  bookDate: '2024-02-01',
+                  amount: 10,
+                  currency: 'EUR',
+                  creditDebitIndicator: 'DBIT',
+                  descriptionLines: ['Test'],
+                  counterPartyAccountNumber: '',
+                  counterPartyName: '',
+                  mutationCode: 'GM',
+                },
+              ],
+              reservations: [],
+            },
           },
           status: 200,
           statusText: 'OK',
@@ -277,19 +284,22 @@ describe('AbnAmro (e2e)', () => {
           data: {
             accountNumber: ACCOUNT_NUMBER,
             nextPageKey: 'page-2-key',
-            transactions: [
-              {
-                transactionId: 'tx-p1',
-                bookDate: '2024-01-01',
-                amount: -10,
-                currencyCode: 'EUR',
-                description: 'Page 1',
-                counterPartyAccountNumber: '',
-                counterPartyName: '',
-                transactionType: 'DEBIT',
-                mutationCode: 'GM',
-              },
-            ],
+            activities: {
+              booked: [
+                {
+                  id: 'tx-p1',
+                  bookDate: '2024-01-01',
+                  amount: 10,
+                  currency: 'EUR',
+                  creditDebitIndicator: 'DBIT',
+                  descriptionLines: ['Page 1'],
+                  counterPartyAccountNumber: '',
+                  counterPartyName: '',
+                  mutationCode: 'GM',
+                },
+              ],
+              reservations: [],
+            },
           },
           status: 200,
           statusText: 'OK',
@@ -303,19 +313,22 @@ describe('AbnAmro (e2e)', () => {
           data: {
             accountNumber: ACCOUNT_NUMBER,
             nextPageKey: null,
-            transactions: [
-              {
-                transactionId: 'tx-p2',
-                bookDate: '2024-01-02',
-                amount: -20,
-                currencyCode: 'EUR',
-                description: 'Page 2',
-                counterPartyAccountNumber: '',
-                counterPartyName: '',
-                transactionType: 'DEBIT',
-                mutationCode: 'GM',
-              },
-            ],
+            activities: {
+              booked: [
+                {
+                  id: 'tx-p2',
+                  bookDate: '2024-01-02',
+                  amount: 20,
+                  currency: 'EUR',
+                  creditDebitIndicator: 'DBIT',
+                  descriptionLines: ['Page 2'],
+                  counterPartyAccountNumber: '',
+                  counterPartyName: '',
+                  mutationCode: 'GM',
+                },
+              ],
+              reservations: [],
+            },
           },
           status: 200,
           statusText: 'OK',
@@ -371,19 +384,22 @@ describe('AbnAmro (e2e)', () => {
               data: {
                 accountNumber: ACCOUNT_NUMBER,
                 nextPageKey: null,
-                transactions: [
-                  {
-                    transactionId: 'tx-r1',
-                    bookDate: '2024-03-01',
-                    amount: -15,
-                    currencyCode: 'EUR',
-                    description: 'Refreshed',
-                    counterPartyAccountNumber: '',
-                    counterPartyName: '',
-                    transactionType: 'DEBIT',
-                    mutationCode: 'GM',
-                  },
-                ],
+                activities: {
+                  booked: [
+                    {
+                      id: 'tx-r1',
+                      bookDate: '2024-03-01',
+                      amount: 15,
+                      currency: 'EUR',
+                      creditDebitIndicator: 'DBIT',
+                      descriptionLines: ['Refreshed'],
+                      counterPartyAccountNumber: '',
+                      counterPartyName: '',
+                      mutationCode: 'GM',
+                    },
+                  ],
+                  reservations: [],
+                },
               },
               status: 200,
               statusText: 'OK',

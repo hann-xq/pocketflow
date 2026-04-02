@@ -6,9 +6,10 @@ import { ConfigService } from '@nestjs/config';
 import { ExternalServiceException } from '../common/exceptions/external-service.exception';
 import { NotAuthorizedException } from '../common/exceptions/not-authorized.exception';
 import {
-  AbnAmroTransaction,
-  AbnAmroTransactionsResponse,
-} from './dto/abn-amro-transaction.dto';
+  AbnAmroActivity,
+  AbnAmroActivitiesResponse,
+} from './dto/abn-amro-activity.dto';
+import { AbnAmroConsentInfoResponse } from './dto/abn-amro-consent-info.dto';
 
 /**
  * Thrown when the ABN AMRO API responds with HTTP 401, signalling that the
@@ -39,13 +40,42 @@ export class AbnAmroApiClient {
     this.apiKey = configService.get('ABN_AMRO_API_KEY', '');
   }
 
-  async fetchTransactions(
+  async fetchConsentInfo(
+    accessToken: string,
+  ): Promise<AbnAmroConsentInfoResponse> {
+    try {
+      const response = await lastValueFrom(
+        this.httpService.get<AbnAmroConsentInfoResponse>(
+          `${this.apiUrl}/v1/consentinfo`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'API-Key': this.apiKey,
+            },
+          },
+        ),
+      );
+
+      return response.data;
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new TokenExpiredError();
+      }
+
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to fetch consent info: ${msg}`);
+      throw new ExternalServiceException(
+        'Failed to fetch ABN AMRO consent info.',
+      );
+    }
+  }
+
+  async fetchActivities(
     accessToken: string,
     accountNumber: string,
-  ): Promise<AbnAmroTransaction[]> {
-    const allTransactions: AbnAmroTransaction[] = [];
+  ): Promise<AbnAmroActivity[]> {
+    const allActivities: AbnAmroActivity[] = [];
 
-    const url = `${this.apiUrl}/v1/accounts/${accountNumber}/transactions`;
     let nextPageKey: string | null = null;
 
     do {
@@ -53,21 +83,24 @@ export class AbnAmroApiClient {
 
       try {
         const response = await lastValueFrom(
-          this.httpService.get<AbnAmroTransactionsResponse>(url, {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'API-Key': this.apiKey,
+          this.httpService.get<AbnAmroActivitiesResponse>(
+            `${this.apiUrl}/v1/accounts/${accountNumber}/activities`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'API-Key': this.apiKey,
+              },
+              params,
             },
-            params,
-          }),
+          ),
         );
 
-        const page = response.data.transactions;
-        allTransactions.push(...page);
+        const page = response.data.activities.booked;
+        allActivities.push(...page);
         nextPageKey = response.data.nextPageKey;
 
         this.logger.log(
-          `Fetched ${page.length} transactions (total so far: ${allTransactions.length})`,
+          `Fetched ${page.length} activities (total so far: ${allActivities.length})`,
         );
       } catch (error: unknown) {
         if (isAxiosError(error)) {
@@ -88,6 +121,6 @@ export class AbnAmroApiClient {
       }
     } while (nextPageKey);
 
-    return allTransactions;
+    return allActivities;
   }
 }
