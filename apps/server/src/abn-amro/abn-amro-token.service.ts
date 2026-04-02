@@ -9,11 +9,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { DomainException } from '../common/exceptions/domain.exception';
 import { ExternalServiceException } from '../common/exceptions/external-service.exception';
 import { NotAuthorizedException } from '../common/exceptions/not-authorized.exception';
 import { ExternalConnectionType } from '../bank-accounts/enums/external-connection-type.enum';
+import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
 import { BankConnection } from './entities/bank-connection.entity';
 import { AbnAmroTokenResponse } from './dto/abn-amro-token.dto';
+import { AbnAmroConsentInfoResponse } from './dto/abn-amro-consent-info.dto';
+import { AbnAmroApiClient, TokenExpiredError } from './abn-amro-api.client';
 
 /**
  * How long a pending OAuth2 state remains valid.
@@ -22,6 +26,40 @@ import { AbnAmroTokenResponse } from './dto/abn-amro-token.dto';
  * instances. Replace this map with a shared store (e.g. Redis) if that matters.
  */
 const STATE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Parses ABN AMRO's human-readable consent duration string into an absolute
+ * expiry date. Returns null if the string cannot be parsed.
+ *
+ * Example input: "26 days, 23 hours, 57 minutes, and 5 seconds"
+ */
+function parseConsentExpiry(consentExpiresIn: string | undefined): Date | null {
+  if (!consentExpiresIn) {
+    return null;
+  }
+
+  let totalSeconds = 0;
+
+  const years = consentExpiresIn.match(/(\d+)\s+year/);
+  const months = consentExpiresIn.match(/(\d+)\s+month/);
+  const days = consentExpiresIn.match(/(\d+)\s+day/);
+  const hours = consentExpiresIn.match(/(\d+)\s+hour/);
+  const minutes = consentExpiresIn.match(/(\d+)\s+minute/);
+  const seconds = consentExpiresIn.match(/(\d+)\s+second/);
+
+  if (years) totalSeconds += parseInt(years[1], 10) * 365 * 86400;
+  if (months) totalSeconds += parseInt(months[1], 10) * 30 * 86400;
+  if (days) totalSeconds += parseInt(days[1], 10) * 86400;
+  if (hours) totalSeconds += parseInt(hours[1], 10) * 3600;
+  if (minutes) totalSeconds += parseInt(minutes[1], 10) * 60;
+  if (seconds) totalSeconds += parseInt(seconds[1], 10);
+
+  if (totalSeconds === 0) {
+    return null;
+  }
+
+  return new Date(Date.now() + totalSeconds * 1000);
+}
 
 /**
  * Manages the ABN AMRO OAuth2 lifecycle: authorization URL generation,
@@ -49,6 +87,8 @@ export class AbnAmroTokenService {
 
   constructor(
     private readonly httpService: HttpService,
+    private readonly apiClient: AbnAmroApiClient,
+    private readonly bankAccountsService: BankAccountsService,
     configService: ConfigService,
     @InjectRepository(BankConnection)
     private readonly connectionRepository: Repository<BankConnection>,
@@ -112,6 +152,10 @@ export class AbnAmroTokenService {
       redirect_uri: this.redirectUri,
     });
 
+    const bankAccount = await this.bankAccountsService.findOne(
+      pending.bankAccountId,
+    );
+
     this.logger.log(
       `Exchanging authorization code for bank account ${pending.bankAccountId}...`,
     );
@@ -131,18 +175,37 @@ export class AbnAmroTokenService {
       const { access_token, refresh_token, expires_in } = response.data;
       const expiresAt = new Date(Date.now() + expires_in * 1000);
 
+      const consentInfo = await this.apiClient.fetchConsentInfo(access_token);
+      this.validateConsentInfo(consentInfo, bankAccount.accountNumber);
+      const consentExpiresAt = parseConsentExpiry(consentInfo.consentExpiresIn);
+
       await this.saveToken(
         pending.bankAccountId,
         access_token,
         refresh_token ?? null,
         expiresAt,
+        consentExpiresAt,
       );
 
       this.logger.log(
         `Access token stored for bank account ${pending.bankAccountId}`,
       );
     } catch (error: unknown) {
-      this.logger.error('Token exchange failed.');
+      if (error instanceof DomainException) {
+        this.logger.warn(`[${pending.bankAccountId}]: ${error.message}`);
+        throw error;
+      }
+
+      if (error instanceof TokenExpiredError) {
+        this.logger.warn(
+          `Token rejected during consent fetch for bank account ${pending.bankAccountId}.`,
+        );
+        throw new ExternalServiceException('Token exchange failed.');
+      }
+
+      this.logger.error(
+        `Token exchange failed for bank account ${pending.bankAccountId}.`,
+      );
       throw this.unwrapTokenError(error);
     }
   }
@@ -198,11 +261,13 @@ export class AbnAmroTokenService {
       const expiresAt = new Date(Date.now() + expires_in * 1000);
 
       // Keep the existing refresh token if the response omits a new one.
+      // Consent expiry is unchanged by a token refresh.
       await this.saveToken(
         connection.bankAccountId,
         access_token,
         refresh_token ?? connection.refreshToken,
         expiresAt,
+        connection.consentExpiresAt,
       );
 
       this.logger.log(
@@ -232,7 +297,9 @@ export class AbnAmroTokenService {
         );
       }
 
-      this.logger.error('Token refresh failed.');
+      this.logger.error(
+        `Token refresh failed for bank account ${connection.bankAccountId}.`,
+      );
       throw this.unwrapTokenError(error);
     }
   }
@@ -241,11 +308,40 @@ export class AbnAmroTokenService {
     await this.connectionRepository.delete({ bankAccountId });
   }
 
+  private validateConsentInfo(
+    consentInfo: AbnAmroConsentInfoResponse,
+    expectedIban: string,
+  ): void {
+    if (consentInfo.consentStatus !== 'FULLY_SIGNED') {
+      throw new NotAuthorizedException(
+        `Consent validation failed: status is "${consentInfo.consentStatus}".`,
+      );
+    }
+
+    if (consentInfo.iban !== expectedIban) {
+      throw new NotAuthorizedException(
+        `Consent validation failed: IBAN mismatch (expected ${expectedIban}, got ${consentInfo.iban}).`,
+      );
+    }
+
+    const grantedScopes = consentInfo.scopes.split(' ');
+    const missingScopes = this.scope
+      .split(' ')
+      .filter((s) => !grantedScopes.includes(s));
+
+    if (missingScopes.length > 0) {
+      throw new NotAuthorizedException(
+        `Consent validation failed: missing scopes: ${missingScopes.join(', ')}.`,
+      );
+    }
+  }
+
   private async saveToken(
     bankAccountId: string,
     plainAccessToken: string,
     plainRefreshToken: string | null,
     expiresAt: Date,
+    consentExpiresAt: Date | null,
   ): Promise<void> {
     await this.connectionRepository.upsert(
       {
@@ -254,6 +350,7 @@ export class AbnAmroTokenService {
         accessToken: plainAccessToken,
         refreshToken: plainRefreshToken,
         expiresAt,
+        consentExpiresAt,
       },
       ['bankAccountId'],
     );
