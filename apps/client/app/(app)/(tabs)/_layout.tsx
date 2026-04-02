@@ -1,8 +1,7 @@
 import { FontAwesome, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import "../global.css";
 
-export default function Index() {
+export default function TabsLayout() {
   return (
     <Tabs>
       <Tabs.Screen

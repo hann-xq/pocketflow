@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import ReanimatedSwipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import "../global.css";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { ApiTransaction } from "@/lib/types";

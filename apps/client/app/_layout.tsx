@@ -1,5 +1,3 @@
-import LoginScreen from "@/components/LoginScreen";
-import RegisterScreen from "@/components/RegisterScreen";
 import { initDatabase, seedDatabase } from "@/database/database";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -9,17 +7,16 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, AppRegistry, Image, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider } from 'react-native-paper';
+
 import './global.css';
+import logo from '../assets/images/logo.png';
 
 const queryClient = new QueryClient();
 
-const logo = require('../assets/images/logo.png');
-
 function AppContent() {
-  const { token, isLoading: tokenLoading } = useAuth();
+  const { isLoading: tokenLoading } = useAuth();
   const [bioPassed, setBioPassed] = useState(false);
   const [authFailed, setAuthFailed] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
     async function setup() {
@@ -29,10 +26,6 @@ function AppContent() {
     setup();
     authenticate();
   }, []);
-
-  useEffect(() => {
-    if (!token) setShowRegister(false);
-  }, [token]);
 
   async function authenticate() {
     setAuthFailed(false);
@@ -105,39 +98,11 @@ function AppContent() {
     );
   }
 
-  if (!token) {
-    if (showRegister) {
-      return <RegisterScreen onBack={() => setShowRegister(false)} />;
-    }
-    return <LoginScreen onShowRegister={() => setShowRegister(true)} />;
-  }
-
   return (
-    <Stack>
-      <Stack.Screen
-        name="(tabs)"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="transactions/[id]"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="transactions/create"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="insights/[category]"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="transactions/edit-tags"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="transactions/by-tag"
-        options={{ headerShown: false }}
-      />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(app)" />
+      <Stack.Screen name="index" />
     </Stack>
   );
 }
