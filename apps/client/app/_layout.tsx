@@ -1,6 +1,10 @@
-import { initDatabase, seedDatabase } from "@/database/database";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { configureOnlineManager } from "@/lib/network";
+import { runMigrations } from "@/db/migrations";
+import { sqlitePersister } from "@/lib/sqlite-persister";
+import { useSync } from "@/hooks/useSync";
+import { QueryClient, useIsRestoring } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
@@ -11,19 +15,29 @@ import { PaperProvider } from 'react-native-paper';
 import './global.css';
 import logo from '../assets/images/logo.png';
 
-const queryClient = new QueryClient();
+configureOnlineManager();
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      networkMode: 'always',
+      staleTime: 5 * 60 * 1000,
+      refetchOnReconnect: false,
+      retry: false,
+    },
+    mutations: { networkMode: 'always' },
+  },
+});
 
 function AppContent() {
   const { isLoading: tokenLoading } = useAuth();
   const [bioPassed, setBioPassed] = useState(false);
   const [authFailed, setAuthFailed] = useState(false);
+  const isRestoring = useIsRestoring();
+
+  useSync();
 
   useEffect(() => {
-    async function setup() {
-      await initDatabase();
-      await seedDatabase();
-    }
-    setup();
     authenticate();
   }, []);
 
@@ -90,7 +104,7 @@ function AppContent() {
     );
   }
 
-  if (tokenLoading) {
+  if (tokenLoading || isRestoring) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" />
@@ -108,15 +122,32 @@ function AppContent() {
 }
 
 export default function RootLayout() {
+  const [dbReady, setDbReady] = useState(false);
+
+  useEffect(() => {
+    runMigrations().then(() => setDbReady(true));
+  }, []);
+
+  if (!dbReady) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister: sqlitePersister, maxAge: 7 * 24 * 60 * 60 * 1000 }}
+      >
         <GestureHandlerRootView>
           <PaperProvider>
             <AppContent />
           </PaperProvider>
         </GestureHandlerRootView>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </AuthProvider>
   );
 }

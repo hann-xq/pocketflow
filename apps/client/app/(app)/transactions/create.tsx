@@ -1,7 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,16 +11,16 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
-import type { ApiCategory, ApiBankAccount, TransactionForm } from "@/lib/types";
+import type { TransactionForm } from "@/lib/types";
+import { useCategories } from "@/hooks/categories/useCategories";
+import { useBankAccounts } from "@/hooks/bank-accounts/useBankAccounts";
+import { useCreateTransaction } from "@/hooks/transactions/useCreateTransaction";
 
 function todayISODate(): string {
   return new Date().toISOString().split("T")[0];
 }
 
 export default function CreateTransaction() {
-  const queryClient = useQueryClient();
   const [form, setForm] = useState<TransactionForm>({
     amount: "",
     isExpense: true,
@@ -32,58 +31,55 @@ export default function CreateTransaction() {
     categoryId: "",
     bankAccountId: "",
   });
-  const { userId } = useAuth();
+
   const [errors, setErrors] = useState<Partial<Record<keyof TransactionForm, string>>>({});
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [bankAccountPickerOpen, setBankAccountPickerOpen] = useState(false);
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery<ApiCategory[]>({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/categories"),
-  });
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
+  const { data: bankAccounts = [], isLoading: bankAccountsLoading } = useBankAccounts();
+  const createTransaction = useCreateTransaction();
 
-  const { data: bankAccounts = [], isLoading: bankAccountsLoading } = useQuery<ApiBankAccount[]>({
-    queryKey: ["bankAccounts", userId],
-    queryFn: () => api.get(`/users/${userId}/bank-accounts`),
-    select: (data) => {
-      if (data.length > 0 && !form.bankAccountId) {
-        setForm((f) => ({ ...f, bankAccountId: data[0].id }));
-      }
-      return data;
-    },
-  });
-
-  const mutation = useMutation({
-    mutationFn: (payload: object) => api.post(`/bank-accounts/${form.bankAccountId}/transactions`, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      router.back();
-    },
-  });
+  useEffect(() => {
+    if (bankAccounts.length > 0) {
+      setForm((f) => ({
+        ...f,
+        bankAccountId: f.bankAccountId !== "" ? f.bankAccountId : bankAccounts[0].id,
+      }));
+    }
+  }, [bankAccounts]);
 
   function validate(): boolean {
     const next: Partial<Record<keyof TransactionForm, string>> = {};
     const parsed = parseFloat(form.amount);
+
     if (!form.amount || isNaN(parsed)) next.amount = "Enter a valid amount";
     if (!form.date || !/^\d{4}-\d{2}-\d{2}$/.test(form.date)) next.date = "Use format YYYY-MM-DD";
     if (!form.categoryId) next.categoryId = "Select a category";
     if (!form.bankAccountId) next.bankAccountId = "No bank account found";
+
     setErrors(next);
     return Object.keys(next).length === 0;
   }
 
   function handleSubmit() {
     if (!validate()) return;
+
     const rawAmount = parseFloat(form.amount);
     const amount = form.isExpense ? -Math.abs(rawAmount) : Math.abs(rawAmount);
-    mutation.mutate({
-      amount,
-      date: form.date,
-      categoryId: form.categoryId,
-      ...(form.description ? { description: form.description } : {}),
-      ...(form.counterpartyName ? { counterpartyName: form.counterpartyName } : {}),
-      ...(form.counterpartyAccount ? { counterpartyAccount: form.counterpartyAccount } : {}),
-    });
+
+    createTransaction.mutate(
+      {
+        bankAccountId: form.bankAccountId,
+        amount,
+        date: form.date,
+        description: form.description || null,
+        counterpartyName: form.counterpartyName || null,
+        counterpartyAccount: form.counterpartyAccount || null,
+        categoryId: form.categoryId,
+      },
+      { onSuccess: () => router.back() }
+    );
   }
 
   const selectedCategory = categories.find((c) => c.id === form.categoryId);
@@ -110,10 +106,10 @@ export default function CreateTransaction() {
         </View>
 
         <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
-          {mutation.isError && (
+          {createTransaction.isError && (
             <View className="mb-5 p-3 bg-red-100 rounded-lg">
               <Text className="text-red-600 text-sm">
-                {(mutation.error as { message?: string })?.message ?? "Failed to create transaction"}
+                {(createTransaction.error as { message?: string })?.message ?? "Failed to create transaction"}
               </Text>
             </View>
           )}
@@ -267,10 +263,10 @@ export default function CreateTransaction() {
           <TouchableOpacity
             className="py-4 bg-primary rounded-xl items-center mt-2"
             onPress={handleSubmit}
-            disabled={mutation.isPending || isLoading}
+            disabled={createTransaction.isPending || isLoading}
             accessibilityLabel="Save transaction"
           >
-            {mutation.isPending ? (
+            {createTransaction.isPending ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text className="text-white text-base font-semibold">Save Transaction</Text>

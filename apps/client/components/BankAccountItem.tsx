@@ -4,6 +4,7 @@ import type { ApiBankAccount } from "@/lib/types";
 
 type Props = {
   item: ApiBankAccount;
+  isOnline: boolean;
   onEdit: (item: ApiBankAccount) => void;
   onDelete: (item: ApiBankAccount) => void;
   onConnectExternalConnection: (item: ApiBankAccount) => void;
@@ -14,6 +15,7 @@ type Props = {
 
 export function BankAccountItem({
   item,
+  isOnline,
   onEdit,
   onDelete,
   onConnectExternalConnection,
@@ -22,6 +24,8 @@ export function BankAccountItem({
   isSyncing,
 }: Props) {
   const isConnected = item.connectionType != null;
+
+  isOnline = false;
 
   return (
     <View
@@ -59,19 +63,22 @@ export function BankAccountItem({
           <>
             <TouchableOpacity
               onPress={() => onRemoveExternalConnection(item)}
+              disabled={!isOnline}
               className="flex-row items-center gap-1 self-start px-3 py-1.5 rounded-md bg-secondary"
               accessibilityRole="button"
               accessibilityLabel={`Remove ABN AMRO connection for ${item.accountName}`}
+              accessibilityState={{ disabled: !isOnline }}
             >
               <MaterialCommunityIcons name="link-variant-off" size={14} color="#fff" />
               <Text className="text-white text-xs font-medium">Remove Connection</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => onSyncExternalConnection(item)}
-              disabled={isSyncing}
-              className={`flex-row items-center gap-1 self-start px-3 py-1.5 rounded-md ${isSyncing ? "bg-accent/50" : "bg-accent"}`}
+              disabled={isSyncing || !isOnline}
+              className={`flex-row items-center gap-1 self-start px-3 py-1.5 rounded-md ${isSyncing || !isOnline ? "bg-accent/50" : "bg-accent"}`}
               accessibilityRole="button"
               accessibilityLabel={`Sync transactions for ${item.accountName}`}
+              accessibilityState={{ disabled: isSyncing || !isOnline }}
             >
               {isSyncing ? (
                 <ActivityIndicator size="small" color="#fff" style={{ width: 14, height: 14 }} />
@@ -84,9 +91,11 @@ export function BankAccountItem({
         ) : (
           <TouchableOpacity
             onPress={() => onConnectExternalConnection(item)}
-            className="flex-row items-center gap-1 self-start px-3 py-1.5 rounded-md bg-accent"
+            disabled={!isOnline}
+            className={`flex-row items-center gap-1 self-start px-3 py-1.5 rounded-md ${!isOnline ? "bg-accent/50" : "bg-accent"}`}
             accessibilityRole="button"
             accessibilityLabel={`Connect ${item.accountName} with ABN AMRO`}
+            accessibilityState={{ disabled: !isOnline }}
           >
             <MaterialCommunityIcons name="link-variant" size={14} color="#fff" />
             <Text className="text-white text-xs font-medium">Connect ABN AMRO</Text>

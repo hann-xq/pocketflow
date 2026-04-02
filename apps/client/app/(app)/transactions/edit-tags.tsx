@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth-context";
 import {
   ActivityIndicator,
   Alert,
@@ -12,28 +13,29 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { api } from "@/lib/api";
-import type { ApiTag, ApiTransaction } from "@/lib/types";
+import type { ApiTag } from "@/lib/types";
+import { useTransactions } from "@/hooks/transactions/useTransactions";
+import { useTags } from "@/hooks/tags/useTags";
+import { useCreateTag } from "@/hooks/tags/useCreateTag";
+import { useUpdateTransactionTags } from "@/hooks/transactions/useUpdateTransactionTags";
 
 export default function EditTags() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
+
   const queryClient = useQueryClient();
+  const { userId } = useAuth();
+  const { data: transactions = [], isLoading } = useTransactions();
+  const { data: allTags = [] } = useTags();
+  const createTag = useCreateTag();
+  const updateTransactionTags = useUpdateTransactionTags();
 
-  const { data: transaction, isLoading: loadingTransaction } = useQuery({
-    queryKey: ["transaction", transactionId],
-    queryFn: () => api.get<ApiTransaction>(`/transactions/${transactionId}`),
-  });
-
-  const { data: allTags = [] } = useQuery({
-    queryKey: ["tags"],
-    queryFn: () => api.get<ApiTag[]>("/tags"),
-  });
+  const transaction = transactions.find((t) => t.id === transactionId) ?? null;
 
   const [selectedTags, setSelectedTags] = useState<ApiTag[]>([]);
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (transaction && !initialized.current) {
+    if (transaction !== null && !initialized.current) {
       setSelectedTags(transaction.tags);
       initialized.current = true;
     }
@@ -53,21 +55,6 @@ export default function EditTags() {
     !allTags.some((tag) => tag.name.toLowerCase() === inputValue.trim().toLowerCase()) &&
     !selectedTags.some((t) => t.name.toLowerCase() === inputValue.trim().toLowerCase());
 
-  const { mutateAsync: createTag } = useMutation({
-    mutationFn: (name: string) => api.post<ApiTag>("/tags", { name }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tags"] }),
-  });
-
-  const { mutate: saveTransaction, isPending: saving } = useMutation({
-    mutationFn: (tagIds: string[]) =>
-      api.patch(`/transactions/${transactionId}`, { tagIds }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["transaction", transactionId] });
-      router.back();
-    },
-  });
-
   const addTag = (tag: ApiTag) => {
     setSelectedTags((prev) => [...prev, tag]);
     setInputValue("");
@@ -76,15 +63,22 @@ export default function EditTags() {
   const handleCreateAndAdd = async () => {
     const name = inputValue.trim();
     if (!name) return;
+
     try {
-      const newTag = await createTag(name);
-      addTag(newTag);
+      await createTag.mutateAsync(name);
+
+      const tags = queryClient.getQueryData<ApiTag[]>(['tags', userId]) ?? [];
+      const newTag = tags.find((t) => t.name === name);
+
+      if (newTag !== undefined) {
+        addTag(newTag);
+      }
     } catch {
       Alert.alert("Error", "Failed to create tag. Please try again.");
     }
   };
 
-  if (loadingTransaction) {
+  if (isLoading) {
     return (
       <SafeAreaProvider>
         <SafeAreaView className="flex-1 bg-background items-center justify-center">
@@ -186,12 +180,17 @@ export default function EditTags() {
           {/* Save button */}
           <TouchableOpacity
             className="mx-4 mt-6 py-3 bg-primary rounded-xl items-center"
-            onPress={() => saveTransaction(selectedTags.map((t) => t.id))}
-            disabled={saving}
+            onPress={() =>
+              updateTransactionTags.mutate(
+                { transactionId: transactionId, tags: selectedTags },
+                { onSuccess: () => router.back() }
+              )
+            }
+            disabled={updateTransactionTags.isPending}
             accessibilityRole="button"
             accessibilityLabel="Save tags"
           >
-            {saving ? (
+            {updateTransactionTags.isPending ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-white font-semibold text-base">Save</Text>
