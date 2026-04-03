@@ -1,0 +1,7 @@
+import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
+import { db } from './client';
+import migrations from '../drizzle/migrations';
+
+export async function runMigrations(): Promise<void> {
+    await migrate(db, migrations);
+}

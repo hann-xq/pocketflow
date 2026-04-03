@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -8,8 +7,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
+import { useTransactions } from "@/hooks/transactions/useTransactions";
 import type { ApiTransaction } from "@/lib/types";
 
 type Section = { title: string; data: ApiTransaction[] };
@@ -72,12 +70,8 @@ function TransactionItem({ item }: { item: ApiTransaction }) {
 
 export default function TransactionsByTag() {
   const { tagId, tagName } = useLocalSearchParams<{ tagId: string; tagName: string }>();
-  const { userId } = useAuth();
 
-  const { data: transactions = [], isLoading, error } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: () => api.get<ApiTransaction[]>(`/users/${userId}/transactions`),
-  });
+  const { data: transactions = [], isLoading, error } = useTransactions();
 
   const filtered = transactions.filter((t) => t.tags.some((tag) => tag.id === tagId));
   const sections = groupByDate(filtered);
@@ -123,7 +117,7 @@ export default function TransactionsByTag() {
         ) : error ? (
           <View className="flex-1 items-center justify-center px-6">
             <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#64748B" />
-            <Text className="text-tSecondary mt-4 text-center">{error?.message ?? "Failed to load transactions"}</Text>
+            <Text className="text-tSecondary mt-4 text-center">{(error as { message?: string })?.message ?? "Failed to load transactions"}</Text>
           </View>
         ) : filtered.length === 0 ? (
           <View className="flex-1 items-center justify-center px-6">

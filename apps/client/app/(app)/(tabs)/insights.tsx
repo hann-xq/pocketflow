@@ -1,11 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
-import { useState, useMemo, useCallback } from "react";
+import { router } from "expo-router";
+import { useState, useMemo } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
+import { useTransactions } from "@/hooks/transactions/useTransactions";
 import type { ApiTransaction } from "@/lib/types";
 
 type Tab = "recurring" | "spendings" | "income";
@@ -51,24 +49,13 @@ function filterLast30Days(transactions: ApiTransaction[]): ApiTransaction[] {
 const MAX_BAR_HEIGHT = 120;
 
 export default function Insights() {
-  const { userId } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("spendings");
 
   const {
     data: transactions = [],
     isLoading,
     error,
-    refetch,
-  } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: () => api.get<ApiTransaction[]>(`/users/${userId}/transactions`),
-  });
-
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch])
-  );
+  } = useTransactions();
 
   const months = useMemo(() => getLastMonths(4), []);
 
@@ -123,7 +110,7 @@ export default function Insights() {
     return (
       <View className="flex-1 items-center justify-center bg-background px-6">
         <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#64748B" />
-        <Text className="text-tSecondary mt-4 text-center">{error?.message ?? "Failed to load data"}</Text>
+        <Text className="text-tSecondary mt-4 text-center">{(error as { message?: string })?.message ?? "Failed to load data"}</Text>
       </View>
     );
   }

@@ -1,16 +1,15 @@
 # PocketFlow
 
-PocketFlow is a personal expense tracker app with biometric security and local storage. This is a prototype using React
-Native and Expo with Expo SQLite.
+PocketFlow is a personal expense tracker with biometric security, offline-first data access, and a NestJS backend.
 
 ---
 
 ## Features
 
-- **Add transactions** — log new income or expense entries with a title, amount, date, and type toggle
-- **Edit transactions** — tap any transaction to update its title or amount
+- **Add transactions** — log new income or expense entries with amount, date, category, and counterparty
+- **Edit transactions** — update amount, counterparty, category, and tags
 - **Delete transactions** — swipe left on a transaction to delete
-- **Persistent local storage** — all data is stored locally using SQLite via `expo-sqlite`
+- **Offline-first** — all data is available offline; writes are queued and synced on reconnect
 - **Accessibility** — screen reader support (accessibility labels, roles, and hints on interactive elements)
 - **Dark mode support** — respects the device's light/dark mode preference
 
@@ -110,5 +109,73 @@ They must be run locally before merging any change that touches a covered flow.
 > Be aware that Maestro may not be compatible with the latest version of Android SDK and Expo Go. The current tested
 > version of Android SDK is 35. The NDK version is 27.1.12297006. And the required Gradle version is 8.13.x. Different
 > configuration may cause unexplainable errors and behavior.
+
+---
+
+## Offline-First Architecture
+
+TanStack Query is the single source of truth for all data. SQLite (via Drizzle ORM) serves two purposes: persisting the
+TQ cache across app restarts and storing a write queue for mutations made while offline.
+
+### Reads
+
+On first launch (online), queries fetch from the API and TQ caches the results. `PersistQueryClientProvider` immediately
+serialises the entire cache to a single row in the `query_cache` SQLite table. On every subsequent launch — online or
+offline — the cache is restored before any screen renders, so data is visible instantly with no loading state.
+
+All queries use `networkMode: 'always'`, so TQ serves the cache regardless of connectivity. When back online, `useSync`
+triggers `invalidateQueries` to refresh stale data.
+
+### Writes
+
+All mutations go through `useOfflineMutation` (`hooks/useOfflineMutation.ts`), which handles branching centrally:
+
+- `onMutate` always runs first and applies an **optimistic update** to the TQ cache, so the UI reflects the change
+  immediately.
+- **Online path:** `mutationFn` calls the API. `onApiSuccess` reconciles the server response, replacing any temp ID with
+  the server-assigned ID.
+- **Offline path:** `mutationFn` returns `{ source: 'offline' }`. `onOfflineSuccess` inserts a row into the
+  `pending_operations` SQLite table.
+- If the API call throws while the device is offline (race condition), the hook rechecks connectivity and falls back to
+  the offline path instead of reverting the optimistic update.
+- On error while still online, `onError` reverts the cache.
+
+### Reconnect sync
+
+When connectivity is restored, `useSync` calls `flushPendingQueue` (`lib/pending-queue.ts`), which:
+
+1. Loads all pending ops and processes them **sequentially in FIFO order** — order matters because the same entity can
+   be modified multiple times.
+2. For **create** ops: posts to the API and replaces the temp-ID item in the TQ cache with the server response.
+3. For **update** ops: first GETs the current entity from the API to compare its `updatedAt` against `op.createdAt`. If
+   the server version is newer, the local op is stale and skipped. If the entity returns 401/403/404, it has been
+   deleted — remove it from cache.
+4. For **delete** ops: calls the API delete endpoint.
+5. On failure: logs the error, wipes only that entity type's query from the cache (it will refetch fresh), and continues
+   processing remaining ops.
+6. Shows a single alert at the end if any op failed.
+7. After flushing, calls `invalidateQueries` for all entity keys.
+
+### Key files
+
+| Path                          | Purpose                                                                     |
+|-------------------------------|-----------------------------------------------------------------------------|
+| `db/schema.ts`                | Drizzle schema — `query_cache` and `pending_operations` tables              |
+| `db/client.ts`                | SQLite + Drizzle singleton                                                  |
+| `db/migrations.ts`            | Migration runner (must complete before `PersistQueryClientProvider` mounts) |
+| `lib/sqlite-persister.ts`     | TQ `Persister` — serialises the full cache as one JSON blob                 |
+| `lib/network.ts`              | `configureOnlineManager()` wires NetInfo to TQ; `useIsOnline()` hook        |
+| `lib/pending-queue.ts`        | `flushPendingQueue` — reconnect sync                                        |
+| `lib/validation.ts`           | Client-side validation for transactions, bank accounts, IBAN, and tag names |
+| `lib/cache-helpers.ts`        | Builds optimistic `ApiTransaction` shapes from form input                   |
+| `hooks/useOfflineMutation.ts` | Base mutation hook with online/offline branching                            |
+| `hooks/useSync.ts`            | Reconnect handler — flush queue then invalidate                             |
+
+### Testing offline behaviour
+
+1. Enable airplane mode on the device or emulator.
+2. Open the app — data loads from the persisted cache with no API calls.
+3. Create, edit, or delete a transaction — the change appears immediately (optimistic update).
+4. Disable airplane mode — the op is flushed to the API, the row is deleted, and fresh data is fetched.
 
 ---

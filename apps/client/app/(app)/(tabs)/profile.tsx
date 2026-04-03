@@ -1,18 +1,19 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { WebViewNavigation } from "react-native-webview";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import {
-  validateIban,
-  type ExternalConnectionSession,
-  type BankAccountFormState,
-  type ModalMode,
-} from "@/lib/bank-account-utils";
+import { useIsOnline } from "@/lib/network";
+import type { BankAccountFormState, ExternalConnectionSession, ModalMode } from "@/lib/bank-account-utils";
 import type { ApiBankAccount } from "@/lib/types";
+import { validateIban } from "@/lib/validation";
+import { useBankAccounts } from "@/hooks/bank-accounts/useBankAccounts";
+import { useCreateBankAccount } from "@/hooks/bank-accounts/useCreateBankAccount";
+import { useUpdateBankAccount } from "@/hooks/bank-accounts/useUpdateBankAccount";
+import { useDeleteBankAccount } from "@/hooks/bank-accounts/useDeleteBankAccount";
 import { AbnAmroWebViewModal } from "@/components/profile/AbnAmroWebViewModal";
 import { BankAccountFormModal } from "@/components/profile/BankAccountFormModal";
 import { BankAccountItem } from "@/components/BankAccountItem";
@@ -31,6 +32,7 @@ function getErrorMessage(err: unknown, action: string): string {
 export default function Profile() {
   const { userId, logout } = useAuth();
   const queryClient = useQueryClient();
+  const isOnline = useIsOnline();
 
   const [modalMode, setModalMode] = useState<ModalMode | null>(null);
   const [form, setForm] = useState<BankAccountFormState>({ accountName: "", accountNumber: "" });
@@ -40,42 +42,10 @@ export default function Profile() {
   const [isLoadingAuthUrl, setIsLoadingAuthUrl] = useState(false);
   const [isExchangingCode, setIsExchangingCode] = useState(false);
 
-  const { data: bankAccounts = [], isLoading, error } = useQuery({
-    queryKey: ["bank-accounts", userId],
-    queryFn: () => api.get<ApiBankAccount[]>(`/users/${userId}/bank-accounts`),
-    enabled: !!userId,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: BankAccountFormState) =>
-      api.post(`/users/${userId}/bank-accounts`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
-      setModalMode(null);
-      Alert.alert("Success", "Bank account created successfully.");
-    },
-    onError: (err) => Alert.alert("Error", getErrorMessage(err, "create")),
-  });
-
-  const editMutation = useMutation({
-    mutationFn: ({ id, accountName }: { id: string; accountName: string }) =>
-      api.patch(`/bank-accounts/${id}`, { accountName }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
-      setModalMode(null);
-      Alert.alert("Success", "Bank account updated successfully.");
-    },
-    onError: (err) => Alert.alert("Error", getErrorMessage(err, "update")),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/bank-accounts/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
-      Alert.alert("Success", "Bank account deleted successfully.");
-    },
-    onError: (err) => Alert.alert("Error", getErrorMessage(err, "delete")),
-  });
+  const { data: bankAccounts = [], isLoading, error } = useBankAccounts();
+  const createBankAccount = useCreateBankAccount();
+  const updateBankAccount = useUpdateBankAccount();
+  const deleteBankAccount = useDeleteBankAccount();
 
   const removeAbnAmroMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/bank-accounts/${id}/abn-amro/connection`),
@@ -178,7 +148,15 @@ export default function Profile() {
       `Are you sure you want to delete "${account.accountName}"?`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(account.id) },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () =>
+            deleteBankAccount.mutate(account.id, {
+              onSuccess: () => Alert.alert("Success", "Bank account deleted successfully."),
+              onError: (err) => Alert.alert("Error", getErrorMessage(err, "delete")),
+            }),
+        },
       ]
     );
   }
@@ -206,9 +184,24 @@ export default function Profile() {
         return;
       }
       setIbanError(null);
-      createMutation.mutate(form);
+      createBankAccount.mutate(form, {
+        onSuccess: () => {
+          setModalMode(null);
+          Alert.alert("Success", "Bank account created successfully.");
+        },
+        onError: (err) => Alert.alert("Error", getErrorMessage(err, "create")),
+      });
     } else if (modalMode?.type === "edit") {
-      editMutation.mutate({ id: modalMode.account.id, accountName: form.accountName });
+      updateBankAccount.mutate(
+        { id: modalMode.account.id, accountName: form.accountName },
+        {
+          onSuccess: () => {
+            setModalMode(null);
+            Alert.alert("Success", "Bank account updated successfully.");
+          },
+          onError: (err) => Alert.alert("Error", getErrorMessage(err, "update")),
+        }
+      );
     }
   }
 
@@ -221,6 +214,7 @@ export default function Profile() {
           renderItem={({ item }) => (
             <BankAccountItem
               item={item}
+              isOnline={isOnline}
               onEdit={openEdit}
               onDelete={handleDelete}
               onConnectExternalConnection={handleConnectAbnAmro}
@@ -297,7 +291,7 @@ export default function Profile() {
           onClearIbanError={() => setIbanError(null)}
           onClose={() => setModalMode(null)}
           onSubmit={handleSubmit}
-          isSubmitting={createMutation.isPending || editMutation.isPending}
+          isSubmitting={createBankAccount.isPending || updateBankAccount.isPending}
         />
       </SafeAreaView>
     </SafeAreaProvider>

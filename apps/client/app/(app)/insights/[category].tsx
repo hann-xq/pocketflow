@@ -1,4 +1,3 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef } from "react";
@@ -11,9 +10,9 @@ import {
 } from "react-native";
 import ReanimatedSwipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
 import type { ApiTransaction } from "@/lib/types";
+import { useTransactions } from "@/hooks/transactions/useTransactions";
+import { useDeleteTransaction } from "@/hooks/transactions/useDeleteTransaction";
 
 type Section = { title: string; data: ApiTransaction[] };
 
@@ -113,8 +112,6 @@ function TransactionItem({
 }
 
 export default function CategoryTransactions() {
-  const { userId } = useAuth();
-  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
     categoryId: string;
     categoryName: string;
@@ -123,15 +120,8 @@ export default function CategoryTransactions() {
 
   const { categoryId, categoryName, type } = params;
 
-  const { data: transactions = [], isLoading, error } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: () => api.get<ApiTransaction[]>(`/users/${userId}/transactions`),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/transactions/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-  });
+  const { data: transactions = [], isLoading, error } = useTransactions();
+  const deleteTransaction = useDeleteTransaction();
 
   const filtered = filterLast30Days(transactions).filter((t) => {
     const amount = parseFloat(t.amount);
@@ -202,7 +192,7 @@ export default function CategoryTransactions() {
             sections={sections}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TransactionItem item={item} onDelete={(id) => deleteMutation.mutate(id)} />
+              <TransactionItem item={item} onDelete={(id) => deleteTransaction.mutate(id)} />
             )}
             renderSectionHeader={renderSectionHeader}
             contentContainerStyle={{ paddingBottom: 32 }}

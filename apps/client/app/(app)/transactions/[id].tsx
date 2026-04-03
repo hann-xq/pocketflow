@@ -1,7 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -13,14 +12,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { api } from "@/lib/api";
+import { useTransactions } from "@/hooks/transactions/useTransactions";
+import { useCategories } from "@/hooks/categories/useCategories";
+import { useUpdateTransaction } from "@/hooks/transactions/useUpdateTransaction";
 import type { ApiTransaction } from "@/lib/types";
-
-type ApiCategory = {
-  id: string;
-  name: string;
-  description: string;
-};
 
 function formatDisplayDate(dateStr: string): string {
   const [year, month, day] = dateStr.split("-");
@@ -28,64 +23,43 @@ function formatDisplayDate(dateStr: string): string {
 }
 
 export default function TransactionDetail() {
-  const params = useLocalSearchParams<{ data: string }>();
-  const transaction: ApiTransaction = JSON.parse(params.data);
+  const params = useLocalSearchParams<{ id: string; data: string }>();
+  const initial: ApiTransaction = JSON.parse(params.data);
 
-  const queryClient = useQueryClient();
+  const { data: transactions = [] } = useTransactions();
+  const transaction = transactions.find((t) => t.id === initial.id) ?? initial;
 
-  const [currentCategory, setCurrentCategory] = useState(transaction.category);
-  const [currentAmount, setCurrentAmount] = useState(transaction.amount);
-  const [currentTags, setCurrentTags] = useState(transaction.tags);
+  const updateTransaction = useUpdateTransaction();
+  const { data: categories = [], isLoading: loadingCategories } = useCategories();
 
-  useFocusEffect(
-    useCallback(() => {
-      api.get<ApiTransaction>(`/transactions/${transaction.id}`).then((data) => {
-        setCurrentTags(data.tags);
-      }).catch(() => {});
-    }, [transaction.id])
-  );
-
-  const amount = parseFloat(currentAmount);
-  const isExpense = amount < 0;
-  const [currentCounterpartyName, setCurrentCounterpartyName] = useState(transaction.counterpartyName);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editAmount, setEditAmount] = useState(transaction.amount);
-  const [editCounterpartyName, setEditCounterpartyName] = useState(transaction.counterpartyName);
-  const [editCounterpartyAccount, setEditCounterpartyAccount] = useState(transaction.counterpartyAccount);
-  const [currentCounterpartyAccount, setCurrentCounterpartyAccount] = useState(transaction.counterpartyAccount);
+  const [editCounterpartyName, setEditCounterpartyName] = useState(transaction.counterpartyName ?? "");
+  const [editCounterpartyAccount, setEditCounterpartyAccount] = useState(transaction.counterpartyAccount ?? "");
 
-  const { data: categories = [], isLoading: loadingCategories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get<ApiCategory[]>("/categories"),
-    enabled: pickerVisible,
-  });
+  const amount = parseFloat(transaction.amount);
+  const isExpense = amount < 0;
+  const displayName = transaction.counterpartyName ?? "";
 
-  const { mutate: updateCategory, isPending: saving } = useMutation({
-    mutationFn: (payload: { categoryId: string }) =>
-      api.patch<ApiTransaction>(`/transactions/${transaction.id}`, payload),
-    onSuccess: async (data) => {
-      setCurrentCategory(data.category);
-      setPickerVisible(false);
-      await queryClient.invalidateQueries({ queryKey: ["transactions"], exact: true });
-    },
-  });
+  const handleCategorySelect = (categoryId: string) => {
+    updateTransaction.mutate(
+      { id: transaction.id, categoryId },
+      { onSuccess: () => setPickerVisible(false) }
+    );
+  };
 
-  const { mutate: updateTransaction, isPending: savingEdit } = useMutation({
-  mutationFn: (payload: { amount: number; counterpartyName: string; counterpartyAccount: string }) =>
-    api.patch<ApiTransaction>(`/transactions/${transaction.id}`, payload),
-
-  onSuccess: async (data) => {
-    setCurrentAmount(data.amount);
-    setCurrentCounterpartyName(data.counterpartyName);
-    setCurrentCounterpartyAccount(data.counterpartyAccount);
-    setEditModalVisible(false);
-    await queryClient.invalidateQueries({ queryKey: ["transactions"], exact: true });
-  },
-  onError: (err) => {
-    console.log("Update failed:", err);
-  }
-});
+  const handleTransactionEdit = () => {
+    updateTransaction.mutate(
+      {
+        id: transaction.id,
+        amount: parseFloat(editAmount),
+        counterpartyName: editCounterpartyName || null,
+        counterpartyAccount: editCounterpartyAccount || null,
+      },
+      { onSuccess: () => setEditModalVisible(false) }
+    );
+  };
 
   return (
     <SafeAreaProvider>
@@ -102,7 +76,7 @@ export default function TransactionDetail() {
           </TouchableOpacity>
           <View className="flex-1 items-center">
             <Text className="text-tSecondary text-sm" numberOfLines={1}>
-              {currentCounterpartyName}
+              {displayName}
             </Text>
           </View>
           <View className="w-9" />
@@ -113,7 +87,7 @@ export default function TransactionDetail() {
           <View className="w-10 h-10 rounded-full bg-accent items-center justify-center mr-3" />
           <View className="flex-1">
             <Text className="text-tPrimary text-base font-medium" numberOfLines={1}>
-              {currentCounterpartyName || transaction.description || "Unknown"}
+              {displayName || transaction.description || "Unknown"}
             </Text>
           </View>
           <Text className={`text-base font-semibold ${isExpense ? "text-tPrimary" : "text-primary"}`}>
@@ -131,13 +105,13 @@ export default function TransactionDetail() {
             className="flex-row items-center px-4 py-4 bg-cards border-b border-border"
             onPress={() => setPickerVisible(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Category: ${currentCategory?.name ?? "Uncategorized"}. Tap to edit.`}
+            accessibilityLabel={`Category: ${transaction.category?.name ?? "Uncategorized"}. Tap to edit.`}
           >
             <View className="w-10 h-10 rounded-full bg-primary items-center justify-center mr-3">
               <MaterialCommunityIcons name="tag-outline" size={20} color="#fff" />
             </View>
             <Text className="flex-1 text-tPrimary text-base">
-              {currentCategory?.name ?? "Uncategorized"}
+              {transaction.category?.name ?? "Uncategorized"}
             </Text>
             <MaterialCommunityIcons name="pencil-outline" size={22} color="#38BDF8" />
           </TouchableOpacity>
@@ -147,10 +121,10 @@ export default function TransactionDetail() {
             <Text className="text-sm font-semibold text-tPrimary">Tags</Text>
           </View>
 
-          {currentTags.length > 0 && (
+          {transaction.tags.length > 0 && (
             <View className="px-4 py-4 bg-cards border-b border-border">
               <View className="flex-row flex-wrap gap-2">
-                {currentTags.map((tag) => (
+                {transaction.tags.map((tag) => (
                   <TouchableOpacity
                     key={tag.id}
                     className="bg-accent px-3 py-1 rounded-full"
@@ -190,8 +164,8 @@ export default function TransactionDetail() {
 
           <View className="px-4 py-4 bg-cards border-b border-border">
             <Text className="text-sm font-semibold text-tPrimary mb-1">Counterparty</Text>
-            <Text className="text-tSecondary text-sm">{currentCounterpartyName}</Text>
-            <Text className="text-tSecondary text-sm">{currentCounterpartyAccount}</Text>
+            <Text className="text-tSecondary text-sm">{transaction.counterpartyName}</Text>
+            <Text className="text-tSecondary text-sm">{transaction.counterpartyAccount}</Text>
           </View>
 
           {transaction.description && (
@@ -204,9 +178,9 @@ export default function TransactionDetail() {
           <TouchableOpacity
             className="mx-4 mt-6 py-3 bg-primary rounded-xl items-center"
             onPress={() => {
-              setEditAmount(currentAmount);
-              setEditCounterpartyName(currentCounterpartyName);
-              setEditCounterpartyAccount(currentCounterpartyAccount);
+              setEditAmount(transaction.amount);
+              setEditCounterpartyName(transaction.counterpartyName ?? "");
+              setEditCounterpartyAccount(transaction.counterpartyAccount ?? "");
               setEditModalVisible(true);
             }}
             accessibilityRole="button"
@@ -271,17 +245,11 @@ export default function TransactionDetail() {
 
               <TouchableOpacity
                 className="py-3 bg-primary rounded-xl items-center mt-2"
-                onPress={() => {
-                  updateTransaction({
-                    amount: parseFloat(editAmount),
-                    counterpartyName: editCounterpartyName,
-                    counterpartyAccount: editCounterpartyAccount,
-                  })
-                }}
-                disabled={savingEdit}
+                onPress={handleTransactionEdit}
+                disabled={updateTransaction.isPending}
                 accessibilityRole="button"
               >
-                {savingEdit ? (
+                {updateTransaction.isPending ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text className="text-white font-semibold text-base">Save</Text>
@@ -319,15 +287,11 @@ export default function TransactionDetail() {
                   <TouchableOpacity
                     key={cat.id}
                     className="flex-row items-center px-4 py-4 border-b border-border"
-                    onPress={() => {
-                      updateCategory({
-                        categoryId: cat.id
-                      })
-                    }}
-                    disabled={saving}
+                    onPress={() => handleCategorySelect(cat.id)}
+                    disabled={updateTransaction.isPending}
                   >
                     <Text className="flex-1 text-tPrimary text-base">{cat.name}</Text>
-                    {currentCategory?.id === cat.id && (
+                    {transaction.category?.id === cat.id && (
                       <MaterialCommunityIcons name="check" size={20} color="#38BDF8" />
                     )}
                   </TouchableOpacity>
@@ -335,7 +299,7 @@ export default function TransactionDetail() {
               </ScrollView>
             )}
 
-            {saving && (
+            {updateTransaction.isPending && (
               <View className="absolute inset-0 items-center justify-center bg-black/30 rounded-t-2xl">
                 <ActivityIndicator color="#38BDF8" />
               </View>
