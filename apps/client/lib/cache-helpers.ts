@@ -8,7 +8,7 @@ export function buildOptimisticTransaction(
   queryClient: QueryClient,
 ): ApiTransaction {
   const categories = queryClient.getQueryData<ApiCategory[]>(['categories']) ?? [];
-  const category = categories.find((c) => c.id === input.categoryId) ?? null;
+  const category = categories.find((c) => c.id === input.categoryId) ?? { id: input.categoryId, name: '', description: '' };
 
   return {
     id: tempId,

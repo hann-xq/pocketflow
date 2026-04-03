@@ -5,7 +5,7 @@ export default function AuthLayout() {
   const { token } = useAuth();
 
   if (token) {
-    return <Redirect href="/(tabs)/insights" />;
+    return <Redirect href="/insights" />;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;

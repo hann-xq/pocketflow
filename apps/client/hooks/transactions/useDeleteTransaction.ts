@@ -1,5 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 import { useQueryClient } from '@tanstack/react-query';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { db } from '@/db/client';
@@ -20,12 +21,17 @@ export function useDeleteTransaction() {
 
       const previous = queryClient.getQueryData<ApiTransaction[]>(key) ?? [];
       queryClient.setQueryData<ApiTransaction[]>(key, (old) => (old ?? []).filter((tx) => tx.id !== id));
+      queryClient.removeQueries({ queryKey: ['transaction', id, userId] });
 
       return { previous };
     },
     apiFn: (id) => api.delete<void>(`/transactions/${id}`),
-    onApiSuccess: () => {},
+    onApiSuccess: () => {
+      Toast.show({ type: 'success', text1: 'Transaction deleted.' });
+    },
     onOfflineSuccess: async (id, context) => {
+      Toast.show({ type: 'success', text1: 'Transaction deleted.' });
+
       const deleted = context.previous.find((tx) => tx.id === id) ?? null;
       await db.insert(pendingOperations).values({
         id: randomUUID(),
@@ -35,6 +41,9 @@ export function useDeleteTransaction() {
         payload: JSON.stringify({ transactionId: id, backup: deleted }),
         createdAt: new Date().toISOString(),
       });
+
+      queryClient.setQueryData<ApiTransaction[]>(key, (old) => (old ?? []).filter((tx) => tx.id !== id));
+      queryClient.removeQueries({ queryKey: ['transaction', id, userId] });
     },
     onError: (_err, _input, context) => {
       if (context !== undefined) {

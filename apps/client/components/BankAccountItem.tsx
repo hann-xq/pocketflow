@@ -1,5 +1,7 @@
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { View, Text } from "react-native";
+import { Button, IconButton } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "@/lib/theme";
 import type { ApiBankAccount } from "@/lib/types";
 
 type Props = {
@@ -13,6 +15,35 @@ type Props = {
   isSyncing: boolean;
 };
 
+type AbnButtonProps = {
+  label: string;
+  icon: string;
+  onPress: () => void;
+  disabled: boolean;
+  loading?: boolean;
+  color?: string;
+  accessibilityLabel: string;
+  accessibilityHint: string;
+};
+
+const AbnButton = ({ label, icon, onPress, disabled, loading, color = colors.secondary, accessibilityLabel, accessibilityHint }: AbnButtonProps) => (
+  <Button
+    mode="text"
+    compact
+    onPress={onPress}
+    disabled={disabled}
+    loading={loading}
+    icon={icon}
+    buttonColor={color}
+    textColor="#fff"
+    accessibilityLabel={accessibilityLabel}
+    accessibilityHint={accessibilityHint}
+    accessibilityState={{ disabled }}
+  >
+    {label}
+  </Button>
+);
+
 export function BankAccountItem({
   item,
   isOnline,
@@ -25,81 +56,77 @@ export function BankAccountItem({
 }: Props) {
   const isConnected = item.connectionType != null;
 
-  isOnline = false;
+  const offlineHint = "Not available while offline.";
 
   return (
     <View
       className="px-4 py-3 bg-cards border-b border-border"
-      accessible={true}
       accessibilityLabel={`${item.accountName}, ${item.accountNumber}`}
     >
       <View className="flex-row items-center">
-        <View className="w-10 h-10 rounded-full bg-accent items-center justify-center mr-3">
-          <MaterialCommunityIcons name="bank-outline" size={20} color="#fff" />
+        <View
+          className="w-10 h-10 rounded-full bg-accent flex items-center justify-center mr-3"
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no-hide-descendants"
+        >
+          <MaterialCommunityIcons name="bank-outline" size={24} color="#fff" />
         </View>
+
         <View className="flex-1">
-          <Text className="text-tPrimary text-base">{item.accountName}</Text>
-          <Text className="text-tSecondary text-xs">{item.accountNumber}</Text>
+          <Text className="text-tPrimary">{item.accountName}</Text>
+          <Text className="text-tSecondary text-sm">{item.accountNumber}</Text>
         </View>
-        <TouchableOpacity
+
+        <IconButton
+          icon="pencil-outline"
+          iconColor={colors.tSecondary}
+          size={20}
           onPress={() => onEdit(item)}
-          className="p-2"
-          accessibilityRole="button"
           accessibilityLabel={`Edit ${item.accountName}`}
-        >
-          <MaterialCommunityIcons name="pencil-outline" size={20} color="#64748B" />
-        </TouchableOpacity>
-        <TouchableOpacity
+          accessibilityHint="Opens a form to rename this account."
+        />
+
+        <IconButton
+          icon="trash-can-outline"
+          iconColor="#EF4444"
+          size={20}
           onPress={() => onDelete(item)}
-          className="p-2"
-          accessibilityRole="button"
           accessibilityLabel={`Delete ${item.accountName}`}
-        >
-          <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-        </TouchableOpacity>
+          accessibilityHint="Permanently removes this bank account."
+        />
       </View>
-      <View className="mt-2 ml-13 flex-row gap-2">
+
+      <View className="mt-1 ml-13 flex-row gap-2">
         {isConnected ? (
           <>
-            <TouchableOpacity
+            <AbnButton
+              label="Remove Connection"
+              icon="link-variant-off"
               onPress={() => onRemoveExternalConnection(item)}
               disabled={!isOnline}
-              className="flex-row items-center gap-1 self-start px-3 py-1.5 rounded-md bg-secondary"
-              accessibilityRole="button"
+              color="#EF4444"
               accessibilityLabel={`Remove ABN AMRO connection for ${item.accountName}`}
-              accessibilityState={{ disabled: !isOnline }}
-            >
-              <MaterialCommunityIcons name="link-variant-off" size={14} color="#fff" />
-              <Text className="text-white text-xs font-medium">Remove Connection</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+              accessibilityHint={isOnline ? "Disconnects this account from ABN AMRO." : offlineHint}
+            />
+            <AbnButton
+              label="Sync"
+              icon="sync"
               onPress={() => onSyncExternalConnection(item)}
               disabled={isSyncing || !isOnline}
-              className={`flex-row items-center gap-1 self-start px-3 py-1.5 rounded-md ${isSyncing || !isOnline ? "bg-accent/50" : "bg-accent"}`}
-              accessibilityRole="button"
+              loading={isSyncing}
               accessibilityLabel={`Sync transactions for ${item.accountName}`}
-              accessibilityState={{ disabled: isSyncing || !isOnline }}
-            >
-              {isSyncing ? (
-                <ActivityIndicator size="small" color="#fff" style={{ width: 14, height: 14 }} />
-              ) : (
-                <MaterialCommunityIcons name="sync" size={14} color="#fff" />
-              )}
-              <Text className="text-white text-xs font-medium">Sync</Text>
-            </TouchableOpacity>
+              accessibilityHint={!isOnline ? offlineHint : isSyncing ? "Sync already in progress." : "Imports the latest transactions from ABN AMRO."}
+            />
           </>
         ) : (
-          <TouchableOpacity
+          <AbnButton
+            label="Connect ABN AMRO"
+            icon="link-variant"
             onPress={() => onConnectExternalConnection(item)}
             disabled={!isOnline}
-            className={`flex-row items-center gap-1 self-start px-3 py-1.5 rounded-md ${!isOnline ? "bg-accent/50" : "bg-accent"}`}
-            accessibilityRole="button"
             accessibilityLabel={`Connect ${item.accountName} with ABN AMRO`}
-            accessibilityState={{ disabled: !isOnline }}
-          >
-            <MaterialCommunityIcons name="link-variant" size={14} color="#fff" />
-            <Text className="text-white text-xs font-medium">Connect ABN AMRO</Text>
-          </TouchableOpacity>
+            accessibilityHint={isOnline ? "Opens the ABN AMRO authorisation flow." : offlineHint}
+          />
         )}
       </View>
     </View>

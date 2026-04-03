@@ -2,6 +2,7 @@ import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from "react-na
 import { SafeAreaView } from "react-native-safe-area-context";
 import WebView, { type WebViewNavigation } from "react-native-webview";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "@/lib/theme";
 import type { ExternalConnectionSession } from "@/lib/bank-account-utils";
 
 type Props = {
@@ -30,20 +31,21 @@ export function AbnAmroWebViewModal({
               accessibilityRole="button"
               accessibilityLabel="Cancel ABN AMRO connection"
             >
-              <MaterialCommunityIcons name="close" size={24} color="#64748B" />
+              <MaterialCommunityIcons name="close" size={24} color={colors.tSecondary} />
             </TouchableOpacity>
             <Text className="text-tPrimary text-base font-semibold">Connect ABN AMRO</Text>
           </View>
 
           {isExchangingCode ? (
             <View className="flex-1 items-center justify-center gap-3">
-              <ActivityIndicator size="large" color="#64748B" />
+              <ActivityIndicator size="large" color={colors.tSecondary} />
               <Text className="text-tSecondary">Completing connection...</Text>
             </View>
           ) : session ? (
             <WebView
               source={{ uri: session.authorizationUrl }}
               onShouldStartLoadWithRequest={onNavigation}
+              textZoom={250}
             />
           ) : null}
         </SafeAreaView>
@@ -52,7 +54,7 @@ export function AbnAmroWebViewModal({
       <Modal visible={isLoadingAuthUrl} transparent animationType="fade">
         <View className="flex-1 items-center justify-center bg-black/40">
           <View className="bg-background rounded-2xl px-8 py-6 items-center gap-3">
-            <ActivityIndicator size="large" color="#64748B" />
+            <ActivityIndicator size="large" color={colors.tSecondary} />
             <Text className="text-tSecondary">Opening ABN AMRO...</Text>
           </View>
         </View>

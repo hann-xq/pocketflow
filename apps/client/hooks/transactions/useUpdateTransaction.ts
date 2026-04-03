@@ -38,7 +38,7 @@ export function useUpdateTransaction() {
 
         if (input.categoryId !== undefined) {
           const categories = queryClient.getQueryData<ApiCategory[]>(['categories']) ?? [];
-          category = categories.find((c) => c.id === input.categoryId) ?? null;
+          category = categories.find((c) => c.id === input.categoryId) ?? existing.category;
         }
 
         const updated: ApiTransaction = {
