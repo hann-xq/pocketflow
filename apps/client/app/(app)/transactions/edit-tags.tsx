@@ -8,16 +8,19 @@ import {
   Alert,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { ApiTag } from "@/lib/types";
 import { useTransactions } from "@/hooks/transactions/useTransactions";
 import { useTags } from "@/hooks/tags/useTags";
 import { useCreateTag } from "@/hooks/tags/useCreateTag";
 import { useUpdateTransactionTags } from "@/hooks/transactions/useUpdateTransactionTags";
+import { SelectedTagList } from "@/components/tags/SelectedTagList";
+import { TagInput } from "@/components/tags/TagInput";
+import { TagSuggestionItem } from "@/components/tags/TagSuggestionItem";
+import { CreateTagOption } from "@/components/tags/CreateTagOption";
 
 export default function EditTags() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
@@ -80,124 +83,78 @@ export default function EditTags() {
 
   if (isLoading) {
     return (
-      <SafeAreaProvider>
-        <SafeAreaView className="flex-1 bg-background items-center justify-center">
-          <ActivityIndicator color="#257D71" />
-        </SafeAreaView>
-      </SafeAreaProvider>
+      <SafeAreaView className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator color="#257D71" />
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView className="flex-1 bg-background">
-        {/* Header */}
-        <View className="flex-row items-center px-4 py-3 bg-cards border-b border-border">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="mr-3 p-1"
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#94A3B8" />
-          </TouchableOpacity>
-          <View className="flex-1 items-center">
-            <Text className="text-tPrimary font-semibold text-base">Edit tags</Text>
-          </View>
-          <View className="w-9" />
+    <SafeAreaView className="flex-1 bg-background">
+      {/* Header */}
+      <View className="flex-row items-center px-4 py-3 bg-cards border-b border-border">
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="mr-3 p-1"
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <MaterialCommunityIcons name="chevron-left" size={28} color="#94A3B8" />
+        </TouchableOpacity>
+        <View className="flex-1 items-center">
+          <Text className="text-tPrimary font-semibold text-base">Edit tags</Text>
+        </View>
+        <View className="w-9" />
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+        {/* Current tags */}
+        <View className="px-4 py-2 bg-background border-b border-border">
+          <Text className="text-sm font-semibold text-tPrimary">Current tags</Text>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
-          {/* Current tags */}
-          <View className="px-4 py-2 bg-background border-b border-border">
-            <Text className="text-sm font-semibold text-tPrimary">Current tags</Text>
-          </View>
+        <SelectedTagList
+          tags={selectedTags}
+          onRemove={(tag) => setSelectedTags((prev) => prev.filter((t) => t.id !== tag.id))}
+        />
 
-          <View className="px-4 py-4 bg-cards border-b border-border min-h-16">
-            {selectedTags.length === 0 ? (
-              <Text className="text-tSecondary text-sm">No tags added yet</Text>
-            ) : (
-              <View className="flex-row flex-wrap gap-2">
-                {selectedTags.map((tag) => (
-                  <View
-                    key={tag.id}
-                    className="flex-row items-center bg-accent px-3 py-1 rounded-full gap-1"
-                  >
-                    <Text className="text-primary text-sm font-medium">#{tag.name}</Text>
-                    <TouchableOpacity
-                      onPress={() => setSelectedTags((prev) => prev.filter((t) => t.id !== tag.id))}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Remove tag ${tag.name}`}
-                    >
-                      <MaterialCommunityIcons name="close" size={14} color="#257D71" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
+        {/* Tag input */}
+        <View className="px-4 py-2 bg-background border-b border-border mt-2">
+          <Text className="text-sm font-semibold text-tPrimary">Add tag</Text>
+        </View>
 
-          {/* Tag input */}
-          <View className="px-4 py-2 bg-background border-b border-border mt-2">
-            <Text className="text-sm font-semibold text-tPrimary">Add tag</Text>
-          </View>
+        <TagInput value={inputValue} onChangeText={setInputValue} />
 
-          <View className="px-4 py-4 bg-cards border-b border-border">
-            <TextInput
-              className="bg-background text-tPrimary px-3 py-3 rounded-lg border border-border"
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder="Type a tag name..."
-              placeholderTextColor="#94A3B8"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
+        {/* Suggestions */}
+        {suggestions.map((tag) => (
+          <TagSuggestionItem key={tag.id} tag={tag} onPress={() => addTag(tag)} />
+        ))}
 
-          {/* Suggestions */}
-          {suggestions.map((tag) => (
-            <TouchableOpacity
-              key={tag.id}
-              className="flex-row items-center px-4 py-4 bg-cards border-b border-border"
-              onPress={() => addTag(tag)}
-            >
-              <MaterialCommunityIcons name="tag-outline" size={18} color="#257D71" style={{ marginRight: 10 }} />
-              <Text className="text-tPrimary text-sm">#{tag.name}</Text>
-            </TouchableOpacity>
-          ))}
+        {/* Create new tag option */}
+        {showCreateOption && (
+          <CreateTagOption tagName={inputValue.trim()} onPress={handleCreateAndAdd} />
+        )}
 
-          {/* Create new tag option */}
-          {showCreateOption && (
-            <TouchableOpacity
-              className="flex-row items-center px-4 py-4 bg-cards border-b border-border"
-              onPress={handleCreateAndAdd}
-            >
-              <MaterialCommunityIcons name="plus-circle-outline" size={18} color="#257D71" style={{ marginRight: 10 }} />
-              <Text className="text-primary text-sm">Create &quot;#{inputValue.trim()}&quot;</Text>
-            </TouchableOpacity>
+        {/* Save button */}
+        <TouchableOpacity
+          className="mx-4 mt-6 py-3 bg-primary rounded-xl items-center"
+          onPress={() =>
+            updateTransactionTags.mutate(
+              { transactionId: transactionId, tags: selectedTags },
+              { onSuccess: () => router.back() }
+            )
+          }
+          disabled={updateTransactionTags.isPending}
+          accessibilityRole="button"
+          accessibilityLabel="Save tags"
+        >
+          {updateTransactionTags.isPending ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text className="text-white font-semibold text-base">Save</Text>
           )}
-
-          {/* Save button */}
-          <TouchableOpacity
-            className="mx-4 mt-6 py-3 bg-primary rounded-xl items-center"
-            onPress={() =>
-              updateTransactionTags.mutate(
-                { transactionId: transactionId, tags: selectedTags },
-                { onSuccess: () => router.back() }
-              )
-            }
-            disabled={updateTransactionTags.isPending}
-            accessibilityRole="button"
-            accessibilityLabel="Save tags"
-          >
-            {updateTransactionTags.isPending ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white font-semibold text-base">Save</Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    </SafeAreaProvider>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

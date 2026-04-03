@@ -1,19 +1,28 @@
+import Toast from 'react-native-toast-message';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { QueryClient, useIsRestoring } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { Stack } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, AppRegistry, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { MD3LightTheme, PaperProvider } from 'react-native-paper';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { configureOnlineManager } from "@/lib/network";
 import { runMigrations } from "@/db/migrations";
 import { sqlitePersister } from "@/lib/sqlite-persister";
 import { useSync } from "@/hooks/useSync";
-import { QueryClient, useIsRestoring } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import * as LocalAuthentication from 'expo-local-authentication';
-import { Stack } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, AppRegistry, Image, Text, TouchableOpacity, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { PaperProvider } from 'react-native-paper';
+import { colors } from '@/lib/theme';
+import { BiometricGate } from '@/components/BiometricGate';
 
 import './global.css';
-import logo from '../assets/images/logo.png';
+
+const paperTheme = {
+  ...MD3LightTheme,
+  colors: { ...MD3LightTheme.colors, primary: colors.primary, secondary: colors.secondary },
+};
+
 
 configureOnlineManager();
 
@@ -42,7 +51,6 @@ function AppContent() {
   }, []);
 
   async function authenticate() {
-    setAuthFailed(false);
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
@@ -50,6 +58,7 @@ function AppContent() {
       setBioPassed(true);
       return;
     }
+
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: "Use your fingerprint to continue",
       fallbackLabel: "Use passcode",
@@ -65,43 +74,7 @@ function AppContent() {
   }
 
   if (!bioPassed) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center p-8">
-        <Image
-          source={logo}
-          className="w-36 h-36 mb-8"
-          resizeMode="contain"
-          accessible={true}
-          accessibilityRole="image"
-          accessibilityLabel="PocketFlow logo"
-        />
-        <Text className="text-2xl font-bold text-tPrimary mb-3 text-center" accessibilityRole="header">Authentication Required</Text>
-        {authFailed ? (
-          <>
-            <Text
-              className="text-base text-red-600 text-center mb-6"
-              accessibilityRole="alert"
-              accessibilityLiveRegion="assertive"
-            >
-              Authentication required
-            </Text>
-            <TouchableOpacity
-              className="bg-primary px-8 py-3.5 rounded-xl"
-              onPress={authenticate}
-              accessibilityRole="button"
-              accessibilityLabel="Try again"
-              accessibilityHint="Retry biometric or passcode authentication"
-            >
-              <Text className="text-white text-base font-semibold">Try Again</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <Text className="text-base text-tSecondary text-center" accessibilityLiveRegion="polite">
-            Please verify your identity to continue
-          </Text>
-        )}
-      </View>
-    );
+    return <BiometricGate authFailed={authFailed} onRetry={authenticate} />;
   }
 
   if (tokenLoading || isRestoring) {
@@ -143,9 +116,12 @@ export default function RootLayout() {
         persistOptions={{ persister: sqlitePersister, maxAge: 7 * 24 * 60 * 60 * 1000 }}
       >
         <GestureHandlerRootView>
-          <PaperProvider>
-            <AppContent />
-          </PaperProvider>
+          <SafeAreaProvider>
+            <PaperProvider theme={paperTheme}>
+              <AppContent />
+            </PaperProvider>
+            <Toast />
+          </SafeAreaProvider>
         </GestureHandlerRootView>
       </PersistQueryClientProvider>
     </AuthProvider>

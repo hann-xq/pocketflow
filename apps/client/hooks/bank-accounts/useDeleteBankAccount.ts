@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { db } from '@/db/client';
 import { pendingOperations } from '@/db/schema';
-import type { ApiBankAccount } from '@/lib/types';
+import type { ApiBankAccount, ApiTransaction } from '@/lib/types';
 import { useOfflineMutation } from '@/hooks/useOfflineMutation';
 
 type DeleteBaContext = { previous: ApiBankAccount[] };
@@ -13,14 +13,20 @@ type DeleteBaContext = { previous: ApiBankAccount[] };
 export function useDeleteBankAccount() {
   const queryClient = useQueryClient();
   const { userId } = useAuth();
+
   const key = ['bank-accounts', userId];
+  const txKey = ['transactions', userId];
 
   return useOfflineMutation<string, void, DeleteBaContext>({
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: key });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: key }),
+        queryClient.cancelQueries({ queryKey: txKey }),
+      ]);
 
       const previous = queryClient.getQueryData<ApiBankAccount[]>(key) ?? [];
       queryClient.setQueryData<ApiBankAccount[]>(key, (old) => (old ?? []).filter((ba) => ba.id !== id));
+      queryClient.setQueryData<ApiTransaction[]>(txKey, (old) => (old ?? []).filter((tx) => tx.bankAccountId !== id));
 
       return { previous };
     },
@@ -36,6 +42,9 @@ export function useDeleteBankAccount() {
         payload: JSON.stringify({ bankAccountId: id, backup: deleted }),
         createdAt: new Date().toISOString(),
       });
+
+      queryClient.setQueryData<ApiBankAccount[]>(key, (old) => (old ?? []).filter((ba) => ba.id !== id));
+      queryClient.setQueryData<ApiTransaction[]>(txKey, (old) => (old ?? []).filter((tx) => tx.bankAccountId !== id));
     },
     onError: (_err, _input, context) => {
       if (context !== undefined) {

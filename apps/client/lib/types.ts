@@ -18,8 +18,8 @@ export type ApiTransaction = {
     id: string;
     name: string;
     description: string;
-  } | null;
-  categoryId: string | null;
+  };
+  categoryId: string;
   tags: ApiTag[];
 };
 
@@ -49,7 +49,9 @@ export type UpdateTransactionTagsInput = {
 export type ApiCategory = {
   id: string;
   name: string;
+  slug: string | null;
   description: string;
+  type: "expense" | "income";
 };
 
 export enum ExternalConnectionType {

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { Alert, Text, TouchableOpacity } from "react-native";
+import Toast from "react-native-toast-message";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { WebViewNavigation } from "react-native-webview";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -16,7 +16,7 @@ import { useUpdateBankAccount } from "@/hooks/bank-accounts/useUpdateBankAccount
 import { useDeleteBankAccount } from "@/hooks/bank-accounts/useDeleteBankAccount";
 import { AbnAmroWebViewModal } from "@/components/profile/AbnAmroWebViewModal";
 import { BankAccountFormModal } from "@/components/profile/BankAccountFormModal";
-import { BankAccountItem } from "@/components/BankAccountItem";
+import { BankAccountList } from "@/components/profile/BankAccountList";
 
 function getErrorMessage(err: unknown, action: string): string {
   const e = err as { status?: number; message?: string };
@@ -51,7 +51,7 @@ export default function Profile() {
     mutationFn: (id: string) => api.delete(`/bank-accounts/${id}/abn-amro/connection`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
-      Alert.alert("Success", "ABN AMRO connection removed.");
+      Toast.show({ type: 'success', text1: "ABN AMRO connection removed." });
     },
     onError: (err) => {
       const e = err as { message?: string };
@@ -64,7 +64,8 @@ export default function Profile() {
       api.post<{ imported: number; skipped: number }>(`/bank-accounts/${id}/abn-amro/transactions`),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
-      Alert.alert("Sync complete", `Imported: ${data.imported}, skipped: ${data.skipped}`);
+      queryClient.invalidateQueries({ queryKey: ["transactions", userId] });
+      Toast.show({ type: 'success', text1: `Sync complete. Imported: ${data.imported}, skipped: ${data.skipped}` });
     },
     onError: (err) => {
       const e = err as { status?: number; message?: string };
@@ -112,7 +113,7 @@ export default function Profile() {
       .then(() => {
         setAbnAmroSession(null);
         queryClient.invalidateQueries({ queryKey: ["bank-accounts", userId] });
-        Alert.alert("Success", "ABN AMRO account connected successfully.");
+        Toast.show({ type: 'success', text1: "ABN AMRO account connected." });
       })
       .catch((err) => {
         setAbnAmroSession(null);
@@ -120,7 +121,7 @@ export default function Profile() {
         if (e?.status === 400) {
           Alert.alert("Error", "Invalid or missing authorization code.");
         } else if (e?.status === 401) {
-          Alert.alert("Error", "Authorization session expired. Please try again.");
+          Alert.alert("Error", "Authorization failed. Please try again.");
         } else {
           Alert.alert("Error", e?.message ?? "Failed to complete ABN AMRO connection.");
         }
@@ -153,7 +154,7 @@ export default function Profile() {
           style: "destructive",
           onPress: () =>
             deleteBankAccount.mutate(account.id, {
-              onSuccess: () => Alert.alert("Success", "Bank account deleted successfully."),
+              onSuccess: () => Toast.show({ type: 'success', text1: "Bank account deleted." }),
               onError: (err) => Alert.alert("Error", getErrorMessage(err, "delete")),
             }),
         },
@@ -187,7 +188,7 @@ export default function Profile() {
       createBankAccount.mutate(form, {
         onSuccess: () => {
           setModalMode(null);
-          Alert.alert("Success", "Bank account created successfully.");
+          Toast.show({ type: 'success', text1: "Bank account created." });
         },
         onError: (err) => Alert.alert("Error", getErrorMessage(err, "create")),
       });
@@ -197,7 +198,7 @@ export default function Profile() {
         {
           onSuccess: () => {
             setModalMode(null);
-            Alert.alert("Success", "Bank account updated successfully.");
+            Toast.show({ type: 'success', text1: "Bank account updated." });
           },
           onError: (err) => Alert.alert("Error", getErrorMessage(err, "update")),
         }
@@ -206,94 +207,48 @@ export default function Profile() {
   }
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView className="flex-1 bg-background">
-        <FlatList
-          data={bankAccounts}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <BankAccountItem
-              item={item}
-              isOnline={isOnline}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-              onConnectExternalConnection={handleConnectAbnAmro}
-              onRemoveExternalConnection={handleRemoveAbnAmro}
-              onSyncExternalConnection={(account) => syncAbnAmroMutation.mutate(account.id)}
-              isSyncing={syncAbnAmroMutation.isPending && syncAbnAmroMutation.variables === item.id}
-            />
-          )}
-          ListHeaderComponent={
-            <View className="flex-row items-center justify-between px-4 py-3">
-              <Text className="text-tPrimary text-lg font-semibold">Bank Accounts</Text>
-              <TouchableOpacity
-                onPress={openCreate}
-                className="w-9 h-9 rounded-full bg-accent items-center justify-center"
-                accessibilityRole="button"
-                accessibilityLabel="Add bank account"
-              >
-                <MaterialCommunityIcons name="plus" size={22} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          }
-          ListEmptyComponent={
-            !isLoading && !error ? (
-              <View className="items-center py-12">
-                <MaterialCommunityIcons name="bank-off-outline" size={48} color="#64748B" />
-                <Text className="text-tSecondary mt-4">No bank accounts found</Text>
-              </View>
-            ) : null
-          }
-          ListFooterComponent={
-            error ? (
-              <View className="items-center py-12 px-6">
-                <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#64748B" />
-                <Text className="text-tSecondary mt-4 text-center">
-                  {(error as { message?: string })?.message ?? "Failed to load bank accounts"}
-                </Text>
-              </View>
-            ) : isLoading ? (
-              <View
-                className="items-center py-12"
-                accessible={true}
-                accessibilityLiveRegion="polite"
-                accessibilityLabel="Loading bank accounts"
-              >
-                <Text className="text-tSecondary">Loading bank accounts...</Text>
-              </View>
-            ) : null
-          }
-          contentContainerStyle={{ paddingBottom: 96 }}
-        />
+    <SafeAreaView className="flex-1 bg-background">
+      <BankAccountList
+        bankAccounts={bankAccounts}
+        isLoading={isLoading}
+        isOnline={isOnline}
+        error={error}
+        syncingAccountId={syncAbnAmroMutation.isPending ? syncAbnAmroMutation.variables : undefined}
+        onAdd={openCreate}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+        onConnectExternalConnection={handleConnectAbnAmro}
+        onRemoveExternalConnection={handleRemoveAbnAmro}
+        onSyncExternalConnection={(account) => syncAbnAmroMutation.mutate(account.id)}
+      />
 
-        <TouchableOpacity
-          onPress={logout}
-          className="absolute bottom-6 left-6 right-6 py-3 bg-secondary rounded-lg items-center"
-          accessibilityRole="button"
-          accessibilityLabel="Log out"
-        >
-          <Text className="text-white font-semibold">Log Out</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        onPress={logout}
+        className="absolute bottom-6 left-6 right-6 py-3 bg-secondary rounded-lg items-center"
+        accessibilityRole="button"
+        accessibilityLabel="Log out"
+      >
+        <Text className="text-white font-semibold">Log Out</Text>
+      </TouchableOpacity>
 
-        <AbnAmroWebViewModal
-          session={abnAmroSession}
-          isLoadingAuthUrl={isLoadingAuthUrl}
-          isExchangingCode={isExchangingCode}
-          onClose={() => setAbnAmroSession(null)}
-          onNavigation={handleWebViewNavigation}
-        />
+      <AbnAmroWebViewModal
+        session={abnAmroSession}
+        isLoadingAuthUrl={isLoadingAuthUrl}
+        isExchangingCode={isExchangingCode}
+        onClose={() => setAbnAmroSession(null)}
+        onNavigation={handleWebViewNavigation}
+      />
 
-        <BankAccountFormModal
-          mode={modalMode}
-          form={form}
-          onChangeForm={(update) => setForm((f) => ({ ...f, ...update }))}
-          ibanError={ibanError}
-          onClearIbanError={() => setIbanError(null)}
-          onClose={() => setModalMode(null)}
-          onSubmit={handleSubmit}
-          isSubmitting={createBankAccount.isPending || updateBankAccount.isPending}
-        />
-      </SafeAreaView>
-    </SafeAreaProvider>
+      <BankAccountFormModal
+        mode={modalMode}
+        form={form}
+        onChangeForm={(update) => setForm((f) => ({ ...f, ...update }))}
+        ibanError={ibanError}
+        onClearIbanError={() => setIbanError(null)}
+        onClose={() => setModalMode(null)}
+        onSubmit={handleSubmit}
+        isSubmitting={createBankAccount.isPending || updateBankAccount.isPending}
+      />
+    </SafeAreaView>
   );
 }
