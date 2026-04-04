@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState, useMemo } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTransactions } from "@/hooks/transactions/useTransactions";
+import { useInsightsShare } from "@/hooks/insights/useInsightsShare";
 import { colors } from "@/lib/theme";
 import { formatCurrency } from "@/lib/format";
 import type { ApiTransaction } from "@/lib/types";
@@ -83,6 +84,8 @@ export default function Insights() {
     return Object.values(map).sort((a, b) => b.total - a.total);
   }, [tabTransactions]);
 
+  const handleShare = useInsightsShare(activeTab, total, categoryData);
+
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
@@ -117,6 +120,15 @@ export default function Insights() {
               {activeTab === "spendings" ? "Your spendings" : "Your income"}
             </Text>
           </View>
+          <TouchableOpacity
+            onPress={handleShare}
+            className="px-5 py-2"
+            accessibilityRole="button"
+            accessibilityLabel="Share insights"
+            accessibilityHint="Share a summary of this month's finances"
+          >
+            <MaterialCommunityIcons name="share-variant" size={22} color={colors.tSecondary} />
+          </TouchableOpacity>
         </View>
 
         <View className="px-4">
