@@ -1,5 +1,4 @@
 import Toast from 'react-native-toast-message';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { QueryClient, useIsRestoring } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Stack } from "expo-router";
@@ -13,6 +12,7 @@ import { configureOnlineManager } from "@/lib/network";
 import { runMigrations } from "@/db/migrations";
 import { sqlitePersister } from "@/lib/sqlite-persister";
 import { useSync } from "@/hooks/useSync";
+import { useBiometricGate } from "@/hooks/useBiometricGate";
 import { colors } from '@/lib/theme';
 import { BiometricGate } from '@/components/BiometricGate';
 
@@ -40,42 +40,10 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { isLoading: tokenLoading } = useAuth();
-  const [bioPassed, setBioPassed] = useState(false);
-  const [authFailed, setAuthFailed] = useState(false);
   const isRestoring = useIsRestoring();
+  const { passed, authFailed, authenticate } = useBiometricGate();
 
   useSync();
-
-  useEffect(() => {
-    authenticate();
-  }, []);
-
-  async function authenticate() {
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-    if (!hasHardware || !isEnrolled) {
-      setBioPassed(true);
-      return;
-    }
-
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: "Use your fingerprint to continue",
-      fallbackLabel: "Use passcode",
-      cancelLabel: "Cancel",
-      disableDeviceFallback: false,
-    });
-
-    if (result.success) {
-      setBioPassed(true);
-    } else {
-      setAuthFailed(true);
-    }
-  }
-
-  if (!bioPassed) {
-    return <BiometricGate authFailed={authFailed} onRetry={authenticate} />;
-  }
 
   if (tokenLoading || isRestoring) {
     return (
@@ -83,6 +51,10 @@ function AppContent() {
         <ActivityIndicator size="large" />
       </View>
     );
+  }
+
+  if (!passed) {
+    return <BiometricGate authFailed={authFailed} onRetry={authenticate} />;
   }
 
   return (

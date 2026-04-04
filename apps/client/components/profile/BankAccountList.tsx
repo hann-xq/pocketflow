@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { FlatList, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { IconButton } from "react-native-paper";
 import { colors } from "@/lib/theme";
 import { BankAccountItem } from "@/components/BankAccountItem";
@@ -33,11 +33,23 @@ export function BankAccountList({
   onSyncExternalConnection,
 }: Props) {
   return (
-    <FlatList
-      data={bankAccounts}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
+    <View>
+      <View className="flex-row items-center justify-between px-4 py-3">
+        <Text className="font-semibold" style={{ fontSize: 22 }} accessibilityRole="header">Bank Accounts</Text>
+        <IconButton
+          icon="plus"
+          size={20}
+          iconColor="#fff"
+          containerColor={colors.secondary}
+          onPress={onAdd}
+          accessibilityLabel="Add bank account"
+          style={{ margin: 0 }}
+        />
+      </View>
+
+      {bankAccounts.map((item) => (
         <BankAccountItem
+          key={item.id}
           item={item}
           onEdit={onEdit}
           onDelete={onDelete}
@@ -47,49 +59,32 @@ export function BankAccountList({
           isSyncing={syncingAccountId === item.id}
           isOnline={isOnline}
         />
-      )}
-      ListHeaderComponent={
-        <View className="flex-row items-center justify-between px-4 py-3">
-          <Text className="font-semibold" style={{ fontSize: 22 }} accessibilityRole="header">Bank Accounts</Text>
-          <IconButton
-            icon="plus"
-            size={20}
-            iconColor="#fff"
-            containerColor={colors.secondary}
-            onPress={onAdd}
-            accessibilityLabel="Add bank account"
-            style={{ margin: 0 }}
-          />
+      ))}
+
+      {!isLoading && !error && bankAccounts.length === 0 && (
+        <View className="items-center py-12">
+          <MaterialCommunityIcons name="bank-off-outline" size={48} color={colors.tSecondary} />
+          <Text className="text-tSecondary mt-4">No bank accounts found</Text>
         </View>
-      }
-      ListEmptyComponent={
-        !isLoading && !error ? (
-          <View className="items-center py-12">
-            <MaterialCommunityIcons name="bank-off-outline" size={48} color={colors.tSecondary} />
-            <Text className="text-tSecondary mt-4">No bank accounts found</Text>
-          </View>
-        ) : null
-      }
-      ListFooterComponent={
-        error ? (
-          <View className="items-center py-12 px-6">
-            <MaterialCommunityIcons name="alert-circle-outline" size={48} color={colors.tSecondary} />
-            <Text className="text-tSecondary mt-4 text-center">
-              {(error as { message?: string })?.message ?? "Failed to load bank accounts"}
-            </Text>
-          </View>
-        ) : isLoading ? (
-          <View
-            className="items-center py-12"
-            accessible={true}
-            accessibilityLiveRegion="polite"
-            accessibilityLabel="Loading bank accounts"
-          >
-            <Text className="text-tSecondary">Loading bank accounts...</Text>
-          </View>
-        ) : null
-      }
-      contentContainerStyle={{ paddingBottom: 96 }}
-    />
+      )}
+
+      {error && bankAccounts.length === 0 ? (
+        <View className="items-center py-12 px-6">
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color={colors.tSecondary} />
+          <Text className="text-tSecondary mt-4 text-center">
+            {(error as { message?: string })?.message ?? "Failed to load bank accounts"}
+          </Text>
+        </View>
+      ) : isLoading ? (
+        <View
+          className="items-center py-12"
+          accessible={true}
+          accessibilityLiveRegion="polite"
+          accessibilityLabel="Loading bank accounts"
+        >
+          <Text className="text-tSecondary">Loading bank accounts...</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Alert, Text, TouchableOpacity } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Toast from "react-native-toast-message";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { WebViewNavigation } from "react-native-webview";
@@ -14,9 +14,11 @@ import { useBankAccounts } from "@/hooks/bank-accounts/useBankAccounts";
 import { useCreateBankAccount } from "@/hooks/bank-accounts/useCreateBankAccount";
 import { useUpdateBankAccount } from "@/hooks/bank-accounts/useUpdateBankAccount";
 import { useDeleteBankAccount } from "@/hooks/bank-accounts/useDeleteBankAccount";
+import { useBiometricSettings } from "@/hooks/useBiometricSettings";
 import { AbnAmroWebViewModal } from "@/components/profile/AbnAmroWebViewModal";
 import { BankAccountFormModal } from "@/components/profile/BankAccountFormModal";
 import { BankAccountList } from "@/components/profile/BankAccountList";
+import { SettingsSection } from "@/components/profile/SettingsSection";
 
 function getErrorMessage(err: unknown, action: string): string {
   const e = err as { status?: number; message?: string };
@@ -33,6 +35,7 @@ export default function Profile() {
   const { userId, logout } = useAuth();
   const queryClient = useQueryClient();
   const isOnline = useIsOnline();
+  const { biometricEnabled, biometricAvailable, toggleBiometric } = useBiometricSettings();
 
   const [modalMode, setModalMode] = useState<ModalMode | null>(null);
   const [form, setForm] = useState<BankAccountFormState>({ accountName: "", accountNumber: "" });
@@ -184,7 +187,9 @@ export default function Profile() {
         setIbanError(ibanValidationError);
         return;
       }
+
       setIbanError(null);
+
       createBankAccount.mutate(form, {
         onSuccess: () => {
           setModalMode(null);
@@ -208,28 +213,40 @@ export default function Profile() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <BankAccountList
-        bankAccounts={bankAccounts}
-        isLoading={isLoading}
-        isOnline={isOnline}
-        error={error}
-        syncingAccountId={syncAbnAmroMutation.isPending ? syncAbnAmroMutation.variables : undefined}
-        onAdd={openCreate}
-        onEdit={openEdit}
-        onDelete={handleDelete}
-        onConnectExternalConnection={handleConnectAbnAmro}
-        onRemoveExternalConnection={handleRemoveAbnAmro}
-        onSyncExternalConnection={(account) => syncAbnAmroMutation.mutate(account.id)}
-      />
+      <ScrollView>
+        <BankAccountList
+          bankAccounts={bankAccounts}
+          isLoading={isLoading}
+          isOnline={isOnline}
+          error={error}
+          syncingAccountId={syncAbnAmroMutation.isPending ? syncAbnAmroMutation.variables : undefined}
+          onAdd={openCreate}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+          onConnectExternalConnection={handleConnectAbnAmro}
+          onRemoveExternalConnection={handleRemoveAbnAmro}
+          onSyncExternalConnection={(account) => syncAbnAmroMutation.mutate(account.id)}
+        />
 
-      <TouchableOpacity
-        onPress={logout}
-        className="absolute bottom-6 left-6 right-6 py-3 bg-secondary rounded-lg items-center"
-        accessibilityRole="button"
-        accessibilityLabel="Log out"
-      >
-        <Text className="text-white font-semibold">Log Out</Text>
-      </TouchableOpacity>
+        <View className="pt-8 pb-1">
+          <SettingsSection
+            biometricEnabled={biometricEnabled}
+            biometricAvailable={biometricAvailable}
+            onToggleBiometric={toggleBiometric}
+          />
+        </View>
+      </ScrollView>
+
+      <View className="px-6 pt-4">
+        <TouchableOpacity
+          onPress={logout}
+          className="py-3 bg-secondary rounded-lg items-center"
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
+        >
+          <Text className="text-white font-semibold">Log Out</Text>
+        </TouchableOpacity>
+      </View>
 
       <AbnAmroWebViewModal
         session={abnAmroSession}
