@@ -1,4 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { onlineManager } from "@tanstack/react-query";
+import { Button } from "react-native-paper";
 import { useState, useMemo } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -39,7 +41,7 @@ function filterLast30Days(transactions: ApiTransaction[]): ApiTransaction[] {
 export default function Insights() {
   const [activeTab, setActiveTab] = useState<Tab>("spendings");
 
-  const { data: transactions = [], isLoading, error } = useTransactions();
+  const { data: transactions = [], isLoading, error, refetch } = useTransactions();
 
   const months = useMemo(() => getLastMonths(4), []);
   const periodTransactions = useMemo(() => filterLast30Days(transactions), [transactions]);
@@ -94,22 +96,30 @@ export default function Insights() {
     );
   }
 
-  if (error) {
+  if (error && (onlineManager.isOnline() || transactions.length === 0)) {
     return (
       <View className="flex-1 items-center justify-center bg-background px-6">
         <MaterialCommunityIcons name="alert-circle-outline" size={48} color={colors.tSecondary} />
         <Text className="text-tSecondary mt-4 text-center">{error?.message ?? "Failed to load data"}</Text>
+        <Button
+          mode="contained"
+          onPress={() => refetch()}
+          accessibilityLabel="Retry loading transactions"
+          style={{ marginTop: 24 }}
+        >
+          Retry
+        </Button>
       </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
       <InsightsTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         <View className="items-center pt-8 pb-2">
-          <Text className="text-5xl font-bold text-tPrimary">€{formatCurrency(total)}</Text>
+          <Text className="text-5xl font-bold text-tPrimary">{formatCurrency(total)}</Text>
         </View>
 
         <MonthlyBarChart data={monthlyData} max={maxMonthly} />

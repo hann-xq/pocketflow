@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import type { QueryClient } from '@tanstack/react-query';
+import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { api } from '@/lib/api';
 import { db } from '@/db/client';
@@ -111,6 +111,8 @@ export async function flushPendingQueue(
   queryClient: QueryClient,
   userId: string,
 ): Promise<void> {
+  if (!onlineManager.isOnline()) return;
+
   const ops = await db.select().from(pendingOperations).orderBy(pendingOperations.createdAt);
 
   const txKey = ['transactions', userId];
@@ -123,6 +125,11 @@ export async function flushPendingQueue(
     try {
       await processOp(op, queryClient, txKey, baKey, tagsKey);
     } catch (err) {
+      if ((err instanceof TypeError && err.message === 'Network request failed') || !onlineManager.isOnline()) {
+        console.warn('[sync] Network unavailable mid-flush; deferring remaining operations.');
+        return;
+      }
+
       const { entityId, entityType, operation } = op;
       console.error('[sync] Failed to flush pending operation:', entityType, operation, entityId, err);
       anyFailed = true;

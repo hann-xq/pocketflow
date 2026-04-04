@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback } from "react";
@@ -27,7 +28,7 @@ export default function Transactions() {
     );
   }
 
-  if (error) {
+  if (error && onlineManager.isOnline()) {
     return (
       <View className="flex-1 items-center justify-center bg-background px-6">
         <MaterialCommunityIcons name="alert-circle-outline" size={48} color={colors.tSecondary} />

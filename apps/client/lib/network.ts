@@ -14,6 +14,7 @@ export function useIsOnline(): boolean {
   const [isOnline, setIsOnline] = useState(onlineManager.isOnline());
 
   useEffect(() => onlineManager.subscribe(() => setIsOnline(onlineManager.isOnline())), []);
+  useEffect(() => console.log('[network] isOnline:', isOnline), [isOnline]);
 
   return isOnline;
 }

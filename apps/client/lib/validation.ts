@@ -1,6 +1,26 @@
 const IBAN_REGEX = /^[A-Z]{2}\d{2}[A-Z]{4}\d{10}$/;
 const TAG_NAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 
+function validateCounterpartyName(name: string | null): string | null {
+  if (name && (name.length < 2 || name.length > 50)) {
+    return 'Counterparty name must be between 2 and 50 characters.';
+  }
+
+  return null;
+}
+
+function validateCounterpartyAccount(account: string | null): string | null {
+  if (!account) {
+    return null;
+  }
+
+  if (!IBAN_REGEX.test(account.replace(/\s/g, ''))) {
+    return 'Counterparty account must be a valid IBAN.';
+  }
+
+  return null;
+}
+
 export function validateTransaction(input: {
   amount: number;
   date: string;
@@ -21,17 +41,14 @@ export function validateTransaction(input: {
     return 'Description must not exceed 500 characters.';
   }
 
-  if (input.counterpartyName !== null) {
-    if (input.counterpartyName.length < 2 || input.counterpartyName.length > 50) {
-      return 'Counterparty name must be between 2 and 50 characters.';
-    }
+  const nameError = validateCounterpartyName(input.counterpartyName);
+  if (nameError) {
+    return nameError;
   }
 
-  if (input.counterpartyAccount !== null) {
-    const iban = input.counterpartyAccount.replace(/\s/g, '');
-    if (!IBAN_REGEX.test(iban)) {
-      return 'Counterparty account must be a valid IBAN.';
-    }
+  const accountError = validateCounterpartyAccount(input.counterpartyAccount);
+  if (accountError) {
+    return accountError;
   }
 
   if (!input.categoryId) {
@@ -74,6 +91,31 @@ export function validateIban(value: string): string | null {
   }
 
   return null;
+}
+
+export function validateTransactionEdit(input: {
+  amount: string;
+  counterpartyName: string;
+  counterpartyAccount: string;
+}): Partial<Record<'amount' | 'counterpartyName' | 'counterpartyAccount', string>> {
+  const errors: Partial<Record<'amount' | 'counterpartyName' | 'counterpartyAccount', string>> = {};
+
+  const parsed = parseFloat(input.amount);
+  if (!input.amount || isNaN(parsed) || parsed < 0) {
+    errors.amount = 'Amount must be a valid number and at least 0.';
+  }
+
+  const nameError = validateCounterpartyName(input.counterpartyName || null);
+  if (nameError) {
+    errors.counterpartyName = nameError;
+  }
+
+  const accountError = validateCounterpartyAccount(input.counterpartyAccount || null);
+  if (accountError) {
+    errors.counterpartyAccount = accountError;
+  }
+
+  return errors;
 }
 
 export function validateTagName(name: string): string | null {

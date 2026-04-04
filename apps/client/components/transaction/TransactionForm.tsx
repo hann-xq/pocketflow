@@ -55,7 +55,11 @@ export function TransactionForm({
       >
         {isError && (
           <View className="mb-5 p-3 bg-red-100 rounded-lg">
-            <Text className="text-red-600 text-sm">
+            <Text
+              className="text-red-600 text-sm"
+              accessibilityRole="alert"
+              accessibilityLiveRegion="assertive"
+            >
               {errorMessage ?? "Failed to create transaction"}
             </Text>
           </View>
@@ -85,10 +89,12 @@ export function TransactionForm({
                 value={form.isExpense}
                 onValueChange={(v) => setForm((f) => ({ ...f, isExpense: v, categoryId: "" }))}
                 accessibilityLabel="Expense toggle"
+                accessibilityRole="switch"
+                accessibilityState={{ checked: form.isExpense }}
               />
             </View>
           </View>
-          {errors.amount && <Text className="text-red-500 text-xs mt-1">{errors.amount}</Text>}
+          {errors.amount && <Text className="text-red-500 text-xs mt-1" accessibilityRole="alert" accessibilityLiveRegion="assertive">{errors.amount}</Text>}
         </View>
 
         {/* Date */}
@@ -98,7 +104,8 @@ export function TransactionForm({
             className={`bg-cards border rounded-lg px-3 py-3 flex-row items-center justify-between ${errors.date ? "border-red-500" : "border-border"}`}
             onPress={() => setShowDatePicker(true)}
             accessibilityRole="button"
-            accessibilityLabel="Select date"
+            accessibilityLabel={`Date: ${form.date}`}
+            accessibilityHint="Opens date picker"
           >
             <Text className="text-tPrimary text-base">{form.date}</Text>
             <MaterialCommunityIcons name="calendar" size={20} color="#94A3B8" />
@@ -114,7 +121,7 @@ export function TransactionForm({
               }}
             />
           )}
-          {errors.date && <Text className="text-red-500 text-xs mt-1">{errors.date}</Text>}
+          {errors.date && <Text className="text-red-500 text-xs mt-1" accessibilityRole="alert" accessibilityLiveRegion="assertive">{errors.date}</Text>}
         </View>
 
         {/* Category */}
@@ -124,14 +131,15 @@ export function TransactionForm({
             className={`bg-cards border rounded-lg px-3 py-3 flex-row items-center justify-between ${errors.categoryId ? "border-red-500" : "border-border"}`}
             onPress={() => setCategoryPickerOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel="Select category"
+            accessibilityLabel={selectedCategory ? `Category: ${selectedCategory.name}` : "Category: not selected"}
+            accessibilityHint="Opens category picker"
           >
             <Text className={selectedCategory ? "text-tPrimary text-base" : "text-[#94A3B8] text-base"}>
               {selectedCategory ? selectedCategory.name : "Select a category"}
             </Text>
             <MaterialCommunityIcons name="chevron-down" size={20} color="#94A3B8" />
           </TouchableOpacity>
-          {errors.categoryId && <Text className="text-red-500 text-xs mt-1">{errors.categoryId}</Text>}
+          {errors.categoryId && <Text className="text-red-500 text-xs mt-1" accessibilityRole="alert" accessibilityLiveRegion="assertive">{errors.categoryId}</Text>}
         </View>
 
         {/* Bank Account */}
@@ -140,7 +148,10 @@ export function TransactionForm({
           <TouchableOpacity
             className={`bg-cards border rounded-lg px-3 py-3 flex-row items-center justify-between ${errors.bankAccountId ? "border-red-500" : "border-border"}`}
             onPress={() => setBankAccountPickerOpen((o) => !o)}
-            accessibilityLabel="Select bank account"
+            accessibilityRole="button"
+            accessibilityLabel={selectedBankAccount ? `Bank account: ${selectedBankAccount.accountName}` : "Bank account: not selected"}
+            accessibilityHint={bankAccountPickerOpen ? "Collapses account list" : "Expands account list"}
+            accessibilityState={{ expanded: bankAccountPickerOpen }}
           >
             <Text className={selectedBankAccount ? "text-tPrimary text-base" : "text-[#94A3B8] text-base"}>
               {selectedBankAccount
@@ -163,7 +174,9 @@ export function TransactionForm({
                     setForm((f) => ({ ...f, bankAccountId: account.id }));
                     setBankAccountPickerOpen(false);
                   }}
+                  accessibilityRole="button"
                   accessibilityLabel={`${account.accountName} ${account.accountNumber}`}
+                  accessibilityState={{ selected: form.bankAccountId === account.id }}
                 >
                   <Text className="text-tPrimary text-base">{account.accountName}</Text>
                   <Text className="text-tSecondary text-xs">{account.accountNumber}</Text>
@@ -172,7 +185,7 @@ export function TransactionForm({
             </View>
           )}
           {errors.bankAccountId && (
-            <Text className="text-red-500 text-xs mt-1">{errors.bankAccountId}</Text>
+            <Text className="text-red-500 text-xs mt-1" accessibilityRole="alert" accessibilityLiveRegion="assertive">{errors.bankAccountId}</Text>
           )}
         </View>
 
@@ -220,7 +233,9 @@ export function TransactionForm({
           className="py-4 bg-primary rounded-xl items-center mt-2"
           onPress={onSubmit}
           disabled={isPending || isLoading}
+          accessibilityRole="button"
           accessibilityLabel="Save transaction"
+          accessibilityState={{ disabled: isPending || isLoading }}
         >
           {isPending ? (
             <ActivityIndicator size="small" color="#fff" />

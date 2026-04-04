@@ -243,6 +243,7 @@ export default function Profile() {
           className="py-3 bg-secondary rounded-lg items-center"
           accessibilityRole="button"
           accessibilityLabel="Log out"
+          accessibilityHint="Logs you out of PocketFlow"
         >
           <Text className="text-white font-semibold">Log Out</Text>
         </TouchableOpacity>

@@ -116,14 +116,14 @@ describe('TransactionForm', () => {
 
   it('shows the bank account list when the bank account picker is pressed', () => {
     render(<TransactionForm {...baseProps} />);
-    fireEvent.press(screen.getByLabelText('Select bank account'));
+    fireEvent.press(screen.getByLabelText('Bank account: Checking'));
     expect(screen.getByLabelText('Checking NL01TEST0123456789')).toBeTruthy();
     expect(screen.getByLabelText('Savings NL02TEST0987654321')).toBeTruthy();
   });
 
   it('calls setForm and closes picker when a bank account is selected', () => {
     render(<TransactionForm {...baseProps} />);
-    fireEvent.press(screen.getByLabelText('Select bank account'));
+    fireEvent.press(screen.getByLabelText('Bank account: Checking'));
     fireEvent.press(screen.getByLabelText('Savings NL02TEST0987654321'));
     expect(baseProps.setForm).toHaveBeenCalledTimes(1);
     expect(screen.queryByLabelText('Savings NL02TEST0987654321')).toBeNull();
@@ -193,7 +193,7 @@ describe('TransactionForm', () => {
   it('opens the date picker when the date row is pressed', () => {
     render(<TransactionForm {...baseProps} />);
     expect(screen.queryByTestId('date-time-picker')).toBeNull();
-    fireEvent.press(screen.getByLabelText('Select date'));
+    fireEvent.press(screen.getByLabelText('Date: 2024-03-15'));
     expect(screen.getByTestId('date-time-picker')).toBeTruthy();
   });
 });

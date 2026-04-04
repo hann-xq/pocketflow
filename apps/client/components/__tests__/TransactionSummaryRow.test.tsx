@@ -24,7 +24,7 @@ describe('TransactionSummaryRow', () => {
         isExpense={false}
       />,
     );
-    expect(screen.getByText('+€2500.00')).toBeTruthy();
+    expect(screen.getByText('+€2,500.00')).toBeTruthy();
   });
 
   it('falls back to description when displayName is empty', () => {

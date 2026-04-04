@@ -17,11 +17,21 @@ export const TransactionTagList = ({ tags, onTagPress, onEditTags }: Props) => {
         accessibilityRole="button"
         accessibilityLabel="Edit tags"
       >
-        <View className="w-10 h-10 rounded-full bg-primary flex items-center justify-center mr-3">
+        <View
+          className="w-10 h-10 rounded-full bg-primary flex items-center justify-center mr-3"
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden={true}
+        >
           <MaterialCommunityIcons name="tag-multiple-outline" size={20} color="#fff" />
         </View>
         <Text className="flex-1 text-tPrimary text-base">Edit tags</Text>
-        <MaterialCommunityIcons name="pencil-outline" size={22} color="#38BDF8" />
+        <MaterialCommunityIcons
+          name="pencil-outline"
+          size={22}
+          color="#38BDF8"
+          importantForAccessibility="no"
+          accessibilityElementsHidden={true}
+        />
       </TouchableOpacity>
     );
   }
@@ -47,7 +57,13 @@ export const TransactionTagList = ({ tags, onTagPress, onEditTags }: Props) => {
         accessibilityLabel="Edit tags"
         className="px-2 -mr-2"
       >
-        <MaterialCommunityIcons name="pencil-outline" size={22} color="#38BDF8" />
+        <MaterialCommunityIcons
+          name="pencil-outline"
+          size={22}
+          color="#38BDF8"
+          importantForAccessibility="no"
+          accessibilityElementsHidden={true}
+        />
       </TouchableOpacity>
     </View>
   );
