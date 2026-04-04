@@ -20,10 +20,7 @@ cp apps/server/.env.example apps/server/.env
 
 Two values must be set before the server will start:
 
-- **`ENCRYPTION_KEY`**: a 64-character hex string (32 bytes). Generate one with:
-  ```bash
-  openssl rand -hex 32
-  ```
+- **`ENCRYPTION_KEY`**: a 64-character hex string (32 bytes). Generate one with: `openssl rand -hex 32`
 - **`JWT_SECRET`**: a long, random string used to sign tokens. Change the placeholder in `.env.example`.
 
 The database variables (`DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`) already have working defaults for the
@@ -50,7 +47,7 @@ See [apps/server/README.md](apps/server/README.md) for the full OAuth2 flow and 
 The client API base URL is configured via an environment variable in [apps/client/.env](apps/client/.env):
 
 ```
-EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000/api/v1
+EXPO_PUBLIC_API=http://10.0.2.2:3000
 ```
 
 `10.0.2.2` is the Android emulator's alias for the host machine, and requires port forwarding via adb:
@@ -78,8 +75,8 @@ From the repo root:
 docker compose up
 ```
 
-The API is available at `https://localhost/api/v1`. Port `3000` is also exposed directly for use with the Android
-emulator.
+The API is available at `https://localhost/api/v1`. Port `3000` (only in the development mode) is also exposed directly
+for use with the Android emulator.
 
 ### Client
 
@@ -87,7 +84,7 @@ emulator.
 cd apps/client && npm start
 ```
 
-Scan the QR code with the Expo Go app, or press `a` for the Android emulator or `i` for the iOS simulator.
+Press `a` for the Android emulator or `i` for the iOS simulator.
 
 ## Test User Credentials
 
