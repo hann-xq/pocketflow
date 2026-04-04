@@ -7,6 +7,7 @@ export type ApiTag = {
 export type ApiTransaction = {
   id: string;
   bankAccountId: string;
+  isExternal: boolean;
   updatedAt: string;
   description: string | null;
   amount: string;
@@ -36,6 +37,7 @@ export type CreateTransactionInput = {
 export type UpdateTransactionInput = {
   id: string;
   amount?: number;
+  description?: string | null;
   counterpartyName?: string | null;
   counterpartyAccount?: string | null;
   categoryId?: string;

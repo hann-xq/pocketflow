@@ -3,15 +3,18 @@ import { EditTransactionModal } from '../transaction/EditTransactionModal';
 
 jest.mock('@/components/BottomSheetModal');
 
+const baseValues = {
+  amount: '12.50',
+  description: 'Morning coffee',
+  counterpartyName: 'Starbucks',
+  counterpartyAccount: 'NL91ABNA0417164300',
+};
+
 const baseProps = {
   visible: true,
   onClose: jest.fn(),
-  editAmount: '12.50',
-  editCounterpartyName: 'Starbucks',
-  editCounterpartyAccount: 'NL91ABNA0417164300',
-  onChangeAmount: jest.fn(),
-  onChangeCounterpartyName: jest.fn(),
-  onChangeCounterpartyAccount: jest.fn(),
+  initialValues: baseValues,
+  isExternal: false,
   onSave: jest.fn(),
   isPending: false,
 };
@@ -25,6 +28,15 @@ describe('EditTransactionModal', () => {
     render(<EditTransactionModal {...baseProps} />);
     expect(screen.getByText('Edit transaction')).toBeTruthy();
     expect(screen.getByLabelText('Amount')).toBeTruthy();
+    expect(screen.getByLabelText('Description')).toBeTruthy();
+    expect(screen.getByLabelText('Counterparty name')).toBeTruthy();
+    expect(screen.getByLabelText('Counterparty account')).toBeTruthy();
+  });
+
+  it('hides the description field for external transactions', () => {
+    render(<EditTransactionModal {...baseProps} isExternal={true} />);
+    expect(screen.queryByLabelText('Description')).toBeNull();
+    expect(screen.getByLabelText('Amount')).toBeTruthy();
     expect(screen.getByLabelText('Counterparty name')).toBeTruthy();
     expect(screen.getByLabelText('Counterparty account')).toBeTruthy();
   });
@@ -34,60 +46,63 @@ describe('EditTransactionModal', () => {
     expect(screen.queryByText('Edit transaction')).toBeNull();
   });
 
-  it('displays the current field values', () => {
+  it('displays the initial field values', () => {
     render(<EditTransactionModal {...baseProps} />);
     expect(screen.getByDisplayValue('12.50')).toBeTruthy();
+    expect(screen.getByDisplayValue('Morning coffee')).toBeTruthy();
     expect(screen.getByDisplayValue('Starbucks')).toBeTruthy();
     expect(screen.getByDisplayValue('NL91ABNA0417164300')).toBeTruthy();
   });
 
-  it('calls onChangeAmount when the amount field changes', () => {
-    render(<EditTransactionModal {...baseProps} />);
-    fireEvent.changeText(screen.getByLabelText('Amount'), '20.00');
-    expect(baseProps.onChangeAmount).toHaveBeenCalledWith('20.00');
-  });
-
-  it('calls onChangeCounterpartyName when the name field changes', () => {
-    render(<EditTransactionModal {...baseProps} />);
-    fireEvent.changeText(screen.getByLabelText('Counterparty name'), 'Costa');
-    expect(baseProps.onChangeCounterpartyName).toHaveBeenCalledWith('Costa');
-  });
-
-  it('calls onChangeCounterpartyAccount when the account field changes', () => {
-    render(<EditTransactionModal {...baseProps} />);
-    fireEvent.changeText(screen.getByLabelText('Counterparty account'), 'BE68 5390 0754 7034');
-    expect(baseProps.onChangeCounterpartyAccount).toHaveBeenCalledWith('BE68 5390 0754 7034');
-  });
-
-  it('calls onSave when the form is valid and Save is pressed', () => {
+  it('calls onSave with the current values when the form is valid and Save is pressed', () => {
     render(<EditTransactionModal {...baseProps} />);
     fireEvent.press(screen.getByLabelText('Save transaction'));
-    expect(baseProps.onSave).toHaveBeenCalledTimes(1);
+    expect(baseProps.onSave).toHaveBeenCalledWith(baseValues);
+  });
+
+  it('calls onSave with updated values after fields are changed', () => {
+    render(<EditTransactionModal {...baseProps} />);
+    fireEvent.changeText(screen.getByLabelText('Amount'), '20.00');
+    fireEvent.changeText(screen.getByLabelText('Description'), 'Lunch');
+    fireEvent.press(screen.getByLabelText('Save transaction'));
+    expect(baseProps.onSave).toHaveBeenCalledWith({
+      amount: '20.00',
+      description: 'Lunch',
+      counterpartyName: 'Starbucks',
+      counterpartyAccount: 'NL91ABNA0417164300',
+    });
   });
 
   it('does not call onSave and shows an error when amount is negative', () => {
-    render(<EditTransactionModal {...baseProps} editAmount="-5" />);
+    render(<EditTransactionModal {...baseProps} initialValues={{ ...baseValues, amount: '-5' }} />);
     fireEvent.press(screen.getByLabelText('Save transaction'));
     expect(baseProps.onSave).not.toHaveBeenCalled();
     expect(screen.getByText('Amount must be a valid number and at least 0.')).toBeTruthy();
   });
 
   it('does not call onSave and shows an error when amount is not a number', () => {
-    render(<EditTransactionModal {...baseProps} editAmount="abc" />);
+    render(<EditTransactionModal {...baseProps} initialValues={{ ...baseValues, amount: 'abc' }} />);
     fireEvent.press(screen.getByLabelText('Save transaction'));
     expect(baseProps.onSave).not.toHaveBeenCalled();
     expect(screen.getByText('Amount must be a valid number and at least 0.')).toBeTruthy();
   });
 
+  it('does not call onSave and shows an error when description exceeds 500 characters', () => {
+    render(<EditTransactionModal {...baseProps} initialValues={{ ...baseValues, description: 'a'.repeat(501) }} />);
+    fireEvent.press(screen.getByLabelText('Save transaction'));
+    expect(baseProps.onSave).not.toHaveBeenCalled();
+    expect(screen.getByText('Description must not exceed 500 characters.')).toBeTruthy();
+  });
+
   it('does not call onSave and shows an error when counterparty name is too short', () => {
-    render(<EditTransactionModal {...baseProps} editCounterpartyName="X" />);
+    render(<EditTransactionModal {...baseProps} initialValues={{ ...baseValues, counterpartyName: 'X' }} />);
     fireEvent.press(screen.getByLabelText('Save transaction'));
     expect(baseProps.onSave).not.toHaveBeenCalled();
     expect(screen.getByText('Counterparty name must be between 2 and 50 characters.')).toBeTruthy();
   });
 
   it('does not call onSave and shows an error when counterparty account is an invalid IBAN', () => {
-    render(<EditTransactionModal {...baseProps} editCounterpartyAccount="NOTANIBAN" />);
+    render(<EditTransactionModal {...baseProps} initialValues={{ ...baseValues, counterpartyAccount: 'NOTANIBAN' }} />);
     fireEvent.press(screen.getByLabelText('Save transaction'));
     expect(baseProps.onSave).not.toHaveBeenCalled();
     expect(screen.getByText('Counterparty account must be a valid IBAN.')).toBeTruthy();

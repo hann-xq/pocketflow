@@ -7,6 +7,7 @@ function makeTransaction(overrides: Partial<ApiTransaction> = {}): ApiTransactio
   return {
     id: 'tx-1',
     bankAccountId: 'ba-1',
+    isExternal: false,
     updatedAt: '2024-01-15T00:00:00.000Z',
     description: 'Coffee',
     amount: '-3.50',

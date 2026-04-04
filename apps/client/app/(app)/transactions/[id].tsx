@@ -30,9 +30,6 @@ export default function TransactionDetail() {
 
   const [pickerVisible, setPickerVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editAmount, setEditAmount] = useState(Math.abs(parseFloat(transaction.amount)).toString());
-  const [editCounterpartyName, setEditCounterpartyName] = useState(transaction.counterpartyName ?? "");
-  const [editCounterpartyAccount, setEditCounterpartyAccount] = useState(transaction.counterpartyAccount ?? "");
 
   const amount = parseFloat(transaction.amount);
   const isExpense = amount < 0;
@@ -62,13 +59,14 @@ export default function TransactionDetail() {
     );
   };
 
-  const handleTransactionEdit = () => {
+  const handleTransactionEdit = (values: { amount: string; description: string; counterpartyName: string; counterpartyAccount: string }) => {
     updateTransaction.mutate(
       {
         id: transaction.id,
-        amount: parseFloat(editAmount) * (isExpense ? -1 : 1),
-        counterpartyName: editCounterpartyName || null,
-        counterpartyAccount: editCounterpartyAccount || null,
+        amount: parseFloat(values.amount) * (isExpense ? -1 : 1),
+        ...(!transaction.isExternal && { description: values.description || null }),
+        counterpartyName: values.counterpartyName || null,
+        counterpartyAccount: values.counterpartyAccount || null,
       },
       { onSuccess: () => setEditModalVisible(false) }
     );
@@ -127,12 +125,7 @@ export default function TransactionDetail() {
 
         <TouchableOpacity
           className="mx-4 mt-6 py-3 bg-primary rounded-xl items-center"
-          onPress={() => {
-            setEditAmount(Math.abs(parseFloat(transaction.amount)).toString());
-            setEditCounterpartyName(transaction.counterpartyName ?? "");
-            setEditCounterpartyAccount(transaction.counterpartyAccount ?? "");
-            setEditModalVisible(true);
-          }}
+          onPress={() => setEditModalVisible(true)}
           accessibilityRole="button"
           accessibilityLabel="Edit transaction"
         >
@@ -152,12 +145,13 @@ export default function TransactionDetail() {
       <EditTransactionModal
         visible={editModalVisible}
         onClose={() => setEditModalVisible(false)}
-        editAmount={editAmount}
-        editCounterpartyName={editCounterpartyName}
-        editCounterpartyAccount={editCounterpartyAccount}
-        onChangeAmount={setEditAmount}
-        onChangeCounterpartyName={setEditCounterpartyName}
-        onChangeCounterpartyAccount={setEditCounterpartyAccount}
+        isExternal={transaction.isExternal}
+        initialValues={{
+          amount: Math.abs(parseFloat(transaction.amount)).toString(),
+          description: transaction.description ?? "",
+          counterpartyName: transaction.counterpartyName ?? "",
+          counterpartyAccount: transaction.counterpartyAccount ?? "",
+        }}
         onSave={handleTransactionEdit}
         isPending={updateTransaction.isPending}
       />
