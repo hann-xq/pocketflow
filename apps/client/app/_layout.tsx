@@ -32,7 +32,6 @@ configureOnlineManager();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      networkMode: 'always',
       staleTime: Infinity,
       refetchOnReconnect: false,
       retry: false,
