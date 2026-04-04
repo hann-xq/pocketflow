@@ -26,7 +26,12 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+type AuthProviderProps = {
+  children: React.ReactNode;
+  onLogout?: () => Promise<void>;
+};
+
+export function AuthProvider({ children, onLogout }: AuthProviderProps) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,6 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
+    await onLogout?.();
+
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     api.applyToken(null);
     setToken(null);

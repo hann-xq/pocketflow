@@ -18,6 +18,7 @@ import { useBiometricSettings } from "@/hooks/useBiometricSettings";
 import { AbnAmroWebViewModal } from "@/components/profile/AbnAmroWebViewModal";
 import { BankAccountFormModal } from "@/components/profile/BankAccountFormModal";
 import { BankAccountList } from "@/components/profile/BankAccountList";
+import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
 import { SettingsSection } from "@/components/profile/SettingsSection";
 
 function getErrorMessage(err: unknown, action: string): string {
@@ -36,6 +37,17 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const isOnline = useIsOnline();
   const { biometricEnabled, biometricAvailable, toggleBiometric } = useBiometricSettings();
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: () => api.delete(`/users/${userId}`),
+    onSuccess: () => logout(),
+    onError: (err) => {
+      const e = err as { message?: string };
+      Alert.alert("Error", e?.message ?? "Failed to delete account. Please try again.");
+    },
+  });
 
   const [modalMode, setModalMode] = useState<ModalMode | null>(null);
   const [form, setForm] = useState<BankAccountFormState>({ accountName: "", accountNumber: "" });
@@ -237,7 +249,7 @@ export default function Profile() {
         </View>
       </ScrollView>
 
-      <View className="px-6 pt-4">
+      <View className="px-6 pt-4 gap-3">
         <TouchableOpacity
           onPress={logout}
           className="py-3 bg-secondary rounded-lg items-center"
@@ -247,6 +259,17 @@ export default function Profile() {
         >
           <Text className="text-white font-semibold">Log Out</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setShowDeleteModal(true)}
+          disabled={!isOnline}
+          className={`py-3 rounded-lg items-center ${isOnline ? "bg-red-500" : "bg-red-500/40"}`}
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+          accessibilityHint="Permanently deletes your account and all associated data"
+        >
+          <Text className="text-white font-semibold">Delete Account</Text>
+        </TouchableOpacity>
       </View>
 
       <AbnAmroWebViewModal
@@ -255,6 +278,13 @@ export default function Profile() {
         isExchangingCode={isExchangingCode}
         onClose={() => setAbnAmroSession(null)}
         onNavigation={handleWebViewNavigation}
+      />
+
+      <DeleteAccountModal
+        visible={showDeleteModal}
+        isDeleting={deleteAccountMutation.isPending}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={() => deleteAccountMutation.mutate()}
       />
 
       <BankAccountFormModal
