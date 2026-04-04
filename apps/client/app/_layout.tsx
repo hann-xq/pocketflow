@@ -10,6 +10,8 @@ import { MD3LightTheme, PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { configureOnlineManager } from "@/lib/network";
+import { db } from "@/db/client";
+import { pendingOperations } from "@/db/schema";
 import { runMigrations } from "@/db/migrations";
 import { sqlitePersister } from "@/lib/sqlite-persister";
 import { useSync } from "@/hooks/useSync";
@@ -82,8 +84,14 @@ export default function RootLayout() {
     );
   }
 
+  const onLogout = async () => {
+    queryClient.clear();
+    await sqlitePersister.removeClient();
+    await db.delete(pendingOperations);
+  };
+
   return (
-    <AuthProvider>
+    <AuthProvider onLogout={onLogout}>
       <PersistQueryClientProvider
         client={queryClient}
         persistOptions={{ persister: sqlitePersister, maxAge: 7 * 24 * 60 * 60 * 1000 }}

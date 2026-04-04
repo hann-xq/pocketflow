@@ -1,25 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { EditTransactionModal } from '../transaction/EditTransactionModal';
 
-jest.mock('@/components/BottomSheetModal', () => ({
-  BottomSheetModal: ({
-    visible,
-    title,
-    children,
-  }: {
-    visible: boolean;
-    title: string;
-    children: React.ReactNode;
-  }) => {
-    const { View, Text } = jest.requireActual('react-native') as typeof import('react-native');
-    return visible ? (
-      <View>
-        <Text>{title}</Text>
-        {children}
-      </View>
-    ) : null;
-  },
-}));
+jest.mock('@/components/BottomSheetModal');
 
 const baseProps = {
   visible: true,
