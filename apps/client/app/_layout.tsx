@@ -2,6 +2,7 @@ import Toast from 'react-native-toast-message';
 import { QueryClient, useIsRestoring } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Stack } from "expo-router";
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from "react";
 import { ActivityIndicator, AppRegistry, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -30,7 +31,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       networkMode: 'always',
-      staleTime: 5 * 60 * 1000,
+      staleTime: Infinity,
       refetchOnReconnect: false,
       retry: false,
     },
@@ -89,6 +90,7 @@ export default function RootLayout() {
       >
         <GestureHandlerRootView>
           <SafeAreaProvider>
+            <StatusBar style="dark" />
             <PaperProvider theme={paperTheme}>
               <AppContent />
             </PaperProvider>

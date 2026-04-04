@@ -48,7 +48,7 @@ function buildShareMessage(type: Tab, total: number, categories: { name: string;
   const lines = [
     `${opener} 🎉`,
     "",
-    `${emoji} Last 30 days: I ${verb} €${formatCurrency(total)}`,
+    `${emoji} Last 30 days: I ${verb} ${formatCurrency(total)}`,
     "",
   ];
 
@@ -57,7 +57,7 @@ function buildShareMessage(type: Tab, total: number, categories: { name: string;
 
     const percentages = allocatePercentages(categories, total);
     for (let i = 0; i < categories.length; i++) {
-      lines.push(`  • ${categories[i].name} — €${formatCurrency(categories[i].total)} (${percentages[i]}%)`);
+      lines.push(`  • ${categories[i].name} — ${formatCurrency(categories[i].total)} (${percentages[i]}%)`);
     }
 
     lines.push("");

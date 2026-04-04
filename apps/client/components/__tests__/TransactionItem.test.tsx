@@ -37,7 +37,7 @@ describe('TransactionItem', () => {
 
   it('shows a + prefix for income', () => {
     render(<TransactionItem item={{ ...base, amount: '2500.00' }} />);
-    expect(screen.getByText('+€2500.00')).toBeTruthy();
+    expect(screen.getByText('+€2,500.00')).toBeTruthy();
   });
 
   it('shows the category name when present', () => {

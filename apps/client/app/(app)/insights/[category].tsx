@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback } from "react";
@@ -67,12 +68,12 @@ export default function CategoryTransactions() {
             {categoryName}
           </Text>
           <Text className="text-tSecondary text-xs">
-            {type === "income" ? "+" : "-"}€{formatCurrency(total)} · last 30 days
+            {type === "income" ? "+" : ""}{formatCurrency(total)} · last 30 days
           </Text>
         </View>
       </View>
 
-      {error ? (
+      {error && onlineManager.isOnline() ? (
         <View className="flex-1 items-center justify-center px-6">
           <MaterialCommunityIcons name="alert-circle-outline" size={48} color={colors.tSecondary} />
           <Text className="text-tSecondary mt-4 text-center">{error?.message ?? "Failed to load transactions"}</Text>

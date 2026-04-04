@@ -31,6 +31,7 @@ export function BankAccountFormModal({
       visible={mode !== null}
       title={isCreate ? "New Bank Account" : "Edit Bank Account"}
       onClose={onClose}
+      avoidKeyboard
     >
       <View className="px-6 pt-5 pb-10">
         <Text className="text-tSecondary text-sm mb-1">Account Name</Text>
@@ -41,6 +42,7 @@ export function BankAccountFormModal({
           placeholder="My Checking Account"
           placeholderTextColor={colors.tSecondary}
           autoCapitalize="words"
+          accessibilityLabel="Account name"
         />
 
         {isCreate && (
@@ -57,6 +59,8 @@ export function BankAccountFormModal({
               placeholderTextColor={colors.tSecondary}
               autoCapitalize="characters"
               autoCorrect={false}
+              accessibilityLabel="Account number (IBAN)"
+              accessibilityHint="Enter your international bank account number"
             />
             {ibanError && (
               <Text className="text-red-500 text-xs mb-6" accessibilityRole="alert">

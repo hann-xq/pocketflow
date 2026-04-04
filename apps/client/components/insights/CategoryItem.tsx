@@ -52,7 +52,7 @@ export function CategoryItem({ category, total, activeTab }: Props) {
       }
       className="flex-row items-center bg-cards rounded-2xl px-4 py-4 border border-border mb-2"
       accessibilityRole="button"
-      accessibilityLabel={`${category.name}, €${formatCurrency(category.total)}, ${pct}%`}
+      accessibilityLabel={`${category.name}, ${formatCurrency(category.total)}, ${pct}%`}
       accessibilityHint="View transactions in this category"
     >
       <View
@@ -85,7 +85,7 @@ export function CategoryItem({ category, total, activeTab }: Props) {
       </View>
 
       <View className="items-end">
-        <Text className="text-tPrimary font-semibold text-base">€{formatCurrency(category.total)}</Text>
+        <Text className="text-tPrimary font-semibold text-base">{formatCurrency(category.total)}</Text>
         <Text className="text-tSecondary text-xs mt-0.5">{pct}%</Text>
       </View>
     </TouchableOpacity>

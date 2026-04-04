@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import ReanimatedSwipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { ApiTransaction } from "@/lib/types";
 import { getCategoryStyle } from "@/components/insights/CategoryItem";
+import { formatCurrency } from "@/lib/format";
 
 function parseAmount(amount: string): number {
   return parseFloat(amount);
@@ -32,6 +33,19 @@ export const TransactionItem = memo(function TransactionItem({
       accessibilityRole="button"
       accessibilityLabel={`${displayTitle}, ${isExpense ? "-" : "+"}€${Math.abs(amount).toFixed(2)}`}
       accessibilityHint="Opens transaction details"
+      accessibilityActions={onDelete ? [{ name: "delete", label: "Delete transaction" }] : undefined}
+      onAccessibilityAction={onDelete ? (event) => {
+        if (event.nativeEvent.actionName === "delete") {
+          Alert.alert(
+            "Delete Transaction",
+            `Are you sure you want to delete "${deleteLabel}"?`,
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => onDelete(item.id) },
+            ]
+          );
+        }
+      } : undefined}
     >
       <View className="flex-row items-center px-4 py-3 bg-cards border-b border-border">
         <View
@@ -54,7 +68,7 @@ export const TransactionItem = memo(function TransactionItem({
           </Text>
         </View>
         <Text className={`text-base font-semibold ${isExpense ? "text-tPrimary" : "text-primary"}`}>
-          {isExpense ? "-" : "+"}€{Math.abs(amount).toFixed(2)}
+          {isExpense ? "" : "+"}{formatCurrency(amount)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -65,8 +79,13 @@ export const TransactionItem = memo(function TransactionItem({
   }
 
   const renderRightActions = () => (
-    <View className="bg-red-500 justify-center items-center w-20">
-      <MaterialCommunityIcons name="trash-can-outline" size={24} color="#fff" />
+    <View
+      className="bg-red-500 justify-center items-center w-20"
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel="Delete transaction"
+    >
+      <MaterialCommunityIcons name="trash-can-outline" size={24} color="#fff" importantForAccessibility="no" />
     </View>
   );
 

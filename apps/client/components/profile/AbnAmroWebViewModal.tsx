@@ -22,7 +22,7 @@ export function AbnAmroWebViewModal({
 }: Props) {
   return (
     <>
-      <Modal visible={session !== null} animationType="slide" onRequestClose={onClose}>
+      <Modal visible={session !== null} animationType="slide" onRequestClose={onClose} accessibilityViewIsModal={true}>
         <SafeAreaView className="flex-1 bg-background">
           <View className="flex-row items-center px-4 py-3 border-b border-border">
             <TouchableOpacity
@@ -38,8 +38,8 @@ export function AbnAmroWebViewModal({
 
           {isExchangingCode ? (
             <View className="flex-1 items-center justify-center gap-3">
-              <ActivityIndicator size="large" color={colors.tSecondary} />
-              <Text className="text-tSecondary">Completing connection...</Text>
+              <ActivityIndicator size="large" color={colors.tSecondary} accessibilityElementsHidden={true} importantForAccessibility="no" />
+              <Text className="text-tSecondary" accessibilityLiveRegion="polite">Completing connection...</Text>
             </View>
           ) : session ? (
             <WebView
@@ -51,11 +51,11 @@ export function AbnAmroWebViewModal({
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={isLoadingAuthUrl} transparent animationType="fade">
+      <Modal visible={isLoadingAuthUrl} transparent animationType="fade" accessibilityViewIsModal={true}>
         <View className="flex-1 items-center justify-center bg-black/40">
           <View className="bg-background rounded-2xl px-8 py-6 items-center gap-3">
-            <ActivityIndicator size="large" color={colors.tSecondary} />
-            <Text className="text-tSecondary">Opening ABN AMRO...</Text>
+            <ActivityIndicator size="large" color={colors.tSecondary} accessibilityElementsHidden={true} importantForAccessibility="no" />
+            <Text className="text-tSecondary" accessibilityLiveRegion="polite">Opening ABN AMRO...</Text>
           </View>
         </View>
       </Modal>

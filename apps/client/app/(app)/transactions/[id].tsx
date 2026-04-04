@@ -30,7 +30,7 @@ export default function TransactionDetail() {
 
   const [pickerVisible, setPickerVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editAmount, setEditAmount] = useState(transaction.amount);
+  const [editAmount, setEditAmount] = useState(Math.abs(parseFloat(transaction.amount)).toString());
   const [editCounterpartyName, setEditCounterpartyName] = useState(transaction.counterpartyName ?? "");
   const [editCounterpartyAccount, setEditCounterpartyAccount] = useState(transaction.counterpartyAccount ?? "");
 
@@ -66,7 +66,7 @@ export default function TransactionDetail() {
     updateTransaction.mutate(
       {
         id: transaction.id,
-        amount: parseFloat(editAmount),
+        amount: parseFloat(editAmount) * (isExpense ? -1 : 1),
         counterpartyName: editCounterpartyName || null,
         counterpartyAccount: editCounterpartyAccount || null,
       },
@@ -128,7 +128,7 @@ export default function TransactionDetail() {
         <TouchableOpacity
           className="mx-4 mt-6 py-3 bg-primary rounded-xl items-center"
           onPress={() => {
-            setEditAmount(transaction.amount);
+            setEditAmount(Math.abs(parseFloat(transaction.amount)).toString());
             setEditCounterpartyName(transaction.counterpartyName ?? "");
             setEditCounterpartyAccount(transaction.counterpartyAccount ?? "");
             setEditModalVisible(true);
