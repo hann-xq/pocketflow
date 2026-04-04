@@ -90,6 +90,11 @@ describe('BankAccountList', () => {
     expect(screen.getByText('Network error')).toBeTruthy();
   });
 
+  it('disables the add button when there is an error', () => {
+    render(<BankAccountList {...baseProps} error={new Error('Network error')} />);
+    expect(screen.getByLabelText('Add bank account')).toBeDisabled();
+  });
+
   it('calls onEdit with the correct account when edit is pressed', () => {
     render(<BankAccountList {...baseProps} bankAccounts={accounts} />);
     fireEvent.press(screen.getByLabelText('Edit Checking'));
