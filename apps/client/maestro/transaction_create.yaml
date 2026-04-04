@@ -1,0 +1,53 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Transactions tab
+    file: login.yaml
+
+- tapOn: Profile tab
+- runFlow:
+    when:
+      visible: "No bank accounts found"
+    file: bank_account_create.yaml
+
+- tapOn: Transactions tab
+- tapOn: Add new transaction
+- assertVisible: New Transaction
+
+# Bank account must already be set up.
+- assertNotVisible: "Bank account: not selected"
+
+- tapOn: Amount
+- inputText: "200"
+- tapOn: "Category: Uncategorized"
+- assertVisible: Groceries
+- tapOn: Groceries
+- tapOn:
+    text: Description
+    index: 1
+- inputText: My custom transaction.
+- tapOn:
+    text: Counterparty name
+    index: 1
+- inputText: Albert Heijn
+- tapOn:
+    text: Counterparty account
+    index: 1
+- inputText: NL12ABNA9999876523
+- tapOn: Save transaction
+
+- assertVisible: Albert Heijn, -€200.00
+- tapOn: Albert Heijn, -€200.00
+- assertVisible: -€200.00
+- assertVisible: Groceries
+- assertVisible: My custom transaction.
+- assertVisible:
+    text: Albert Heijn
+    index: 2
+
+- tapOn: Go back
+- tapOn: Insights tab
+- tapOn: Groceries, .*
+- assertVisible: Albert Heijn, -€200.00
+- tapOn: Go back

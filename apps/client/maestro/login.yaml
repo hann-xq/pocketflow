@@ -1,8 +1,6 @@
 appId: com.pocketflow.app
 ---
-# Start with a clean state so no stored token can skip the login screen.
-- launchApp:
-    clearState: true
+- runFlow: expo_setup.yaml
 
 - assertVisible: "Welcome to PocketFlow"
 
@@ -12,8 +10,8 @@ appId: com.pocketflow.app
 
 # Entering valid credentials and signing in must navigate to the main screen.
 - tapOn: "Email"
-- inputText: "test@example.com"
+- inputText: "test@email.com"
 - tapOn: "Password"
-- inputText: "password123"
+- inputText: "password"
 - tapOn: Done
 - assertVisible: "Your spendings"

@@ -1,0 +1,48 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Transactions tab
+    file: login.yaml
+
+- tapOn: Transactions tab
+- runFlow:
+    when:
+      notVisible: Albert Heijn, -€200.00
+    file: transaction_create.yaml
+
+- tapOn: Transactions tab
+- tapOn: Albert Heijn, -€200.00
+- tapOn: Edit transaction
+- tapOn:
+    text: Amount
+    index: 1
+- eraseText: 50
+- inputText: "5000"
+- tapOn:
+    text: Description
+    index: 1
+- eraseText: 50
+- inputText: My new description.
+- tapOn:
+    text: Counterparty name
+    index: 1
+- eraseText: 50
+- inputText: "Bol.com"
+- tapOn: Save transaction
+
+- assertVisible: Bol.com, -€5,000.00
+- assertVisible: My new description.
+
+# Update the category, too.
+- tapOn: "Category: .*. Tap to edit."
+- tapOn: Entertainment
+- assertVisible: "Category: Entertainment. Tap to edit."
+
+# Make sure that the updated transaction is propagated in the rest of the application.
+- tapOn: Go back
+- assertVisible: Bol.com, -€5000.00
+- tapOn: Insights tab
+- tapOn: Entertainment, .*
+- assertVisible: Bol.com, -€5000.00
+- tapOn: Go back

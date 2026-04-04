@@ -1,0 +1,31 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Transactions tab
+    file: login.yaml
+
+- tapOn: Profile tab
+- runFlow:
+    when:
+      visible: "No bank accounts found"
+    file: bank_account_create.yaml
+
+- assertVisible:
+    text: Connect My Savings with ABN AMRO
+    enabled: true
+- assertVisible:
+    text: Delete account
+    enabled: true
+
+- setAirplaneMode: enabled
+- assertVisible:
+    text: Connect My Savings with ABN AMRO
+    enabled: false
+- assertVisible:
+    text: Delete account
+    enabled: false
+- assertVisible:
+    text: Log out
+    enabled: true
+- setAirplaneMode: disabled

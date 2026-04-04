@@ -1,0 +1,29 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Profile tab
+    file: login.yaml
+
+- tapOn: Transactions tab
+- runFlow:
+    when:
+      notVisible: Albert Heijn, -€200.00
+    file: transaction_create.yaml
+
+# Since there is at least one transaction, we know that there must be the test bank account, too.
+- tapOn: Profile tab
+- tapOn: Delete My Savings
+- assertVisible: Are you sure you want to delete "My Savings"?
+- tapOn: DELETE
+
+- assertVisible:
+    id: toastContentContainer
+- assertVisible: No bank accounts found
+
+- tapOn: Transactions tab
+- assertVisible: Add new transaction
+- assertNotVisible: Albert Heijn, -€200.00
+
+- tapOn: Insights tab
+- assertNotVisible: Groceries, .*
