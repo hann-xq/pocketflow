@@ -95,14 +95,19 @@ export function validateIban(value: string): string | null {
 
 export function validateTransactionEdit(input: {
   amount: string;
+  description: string;
   counterpartyName: string;
   counterpartyAccount: string;
-}): Partial<Record<'amount' | 'counterpartyName' | 'counterpartyAccount', string>> {
-  const errors: Partial<Record<'amount' | 'counterpartyName' | 'counterpartyAccount', string>> = {};
+}): Partial<Record<'amount' | 'description' | 'counterpartyName' | 'counterpartyAccount', string>> {
+  const errors: Partial<Record<'amount' | 'description' | 'counterpartyName' | 'counterpartyAccount', string>> = {};
 
   const parsed = parseFloat(input.amount);
   if (!input.amount || isNaN(parsed) || parsed < 0) {
     errors.amount = 'Amount must be a valid number and at least 0.';
+  }
+
+  if (input.description.length > 500) {
+    errors.description = 'Description must not exceed 500 characters.';
   }
 
   const nameError = validateCounterpartyName(input.counterpartyName || null);

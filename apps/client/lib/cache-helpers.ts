@@ -13,6 +13,7 @@ export function buildOptimisticTransaction(
   return {
     id: tempId,
     bankAccountId: input.bankAccountId,
+    isExternal: false,
     updatedAt: new Date().toISOString(),
     amount: String(input.amount),
     date: input.date,

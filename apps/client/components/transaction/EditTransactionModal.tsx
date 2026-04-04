@@ -1,42 +1,55 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { BottomSheetModal } from "@/components/BottomSheetModal";
 import { validateTransactionEdit } from "@/lib/validation";
 
+type EditValues = {
+  amount: string;
+  description: string;
+  counterpartyName: string;
+  counterpartyAccount: string;
+};
+
 type Props = {
   visible: boolean;
   onClose: () => void;
-  editAmount: string;
-  editCounterpartyName: string;
-  editCounterpartyAccount: string;
-  onChangeAmount: (value: string) => void;
-  onChangeCounterpartyName: (value: string) => void;
-  onChangeCounterpartyAccount: (value: string) => void;
-  onSave: () => void;
+  initialValues: EditValues;
+  isExternal: boolean;
+  onSave: (values: EditValues) => void;
   isPending: boolean;
 };
 
 export function EditTransactionModal({
   visible,
   onClose,
-  editAmount,
-  editCounterpartyName,
-  editCounterpartyAccount,
-  onChangeAmount,
-  onChangeCounterpartyName,
-  onChangeCounterpartyAccount,
+  initialValues,
+  isExternal,
   onSave,
   isPending,
 }: Props) {
-  const [errors, setErrors] = useState<
-    Partial<Record<'amount' | 'counterpartyName' | 'counterpartyAccount', string>>
-  >({});
+  const [amount, setAmount] = useState(initialValues.amount);
+  const [description, setDescription] = useState(initialValues.description);
+  const [counterpartyName, setCounterpartyName] = useState(initialValues.counterpartyName);
+  const [counterpartyAccount, setCounterpartyAccount] = useState(initialValues.counterpartyAccount);
+  const [errors, setErrors] = useState<Partial<Record<keyof EditValues, string>>>({});
+
+  useEffect(() => {
+    if (visible) {
+      setAmount(initialValues.amount);
+      setDescription(initialValues.description);
+      setCounterpartyName(initialValues.counterpartyName);
+      setCounterpartyAccount(initialValues.counterpartyAccount);
+      setErrors({});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const handleSave = () => {
     const validationErrors = validateTransactionEdit({
-      amount: editAmount,
-      counterpartyName: editCounterpartyName,
-      counterpartyAccount: editCounterpartyAccount,
+      amount,
+      description: isExternal ? '' : description,
+      counterpartyName,
+      counterpartyAccount,
     });
 
     if (Object.keys(validationErrors).length > 0) {
@@ -45,7 +58,7 @@ export function EditTransactionModal({
     }
 
     setErrors({});
-    onSave();
+    onSave({ amount, description, counterpartyName, counterpartyAccount });
   };
 
   return (
@@ -64,8 +77,8 @@ export function EditTransactionModal({
             <Text className="text-tPrimary text-base mr-1">€</Text>
             <TextInput
               className="flex-1 py-3 text-tPrimary"
-              value={editAmount}
-              onChangeText={onChangeAmount}
+              value={amount}
+              onChangeText={setAmount}
               keyboardType="numeric"
               placeholder="e.g. 12.50"
               placeholderTextColor="#94A3B8"
@@ -79,12 +92,31 @@ export function EditTransactionModal({
           )}
         </View>
 
+        {!isExternal && (
+          <View>
+            <Text className="font-semibold text-tPrimary mb-2">Description</Text>
+            <TextInput
+              className={`bg-cards text-tPrimary px-3 py-3 rounded-lg border ${errors.description ? "border-red-500" : "border-border"}`}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Description"
+              placeholderTextColor="#94A3B8"
+              accessibilityLabel="Description"
+            />
+            {errors.description && (
+              <Text className="text-red-500 text-xs mt-1" accessibilityRole="alert">
+                {errors.description}
+              </Text>
+            )}
+          </View>
+        )}
+
         <View>
           <Text className="font-semibold text-tPrimary mb-2">Counterparty name</Text>
           <TextInput
             className={`bg-cards text-tPrimary px-3 py-3 rounded-lg border ${errors.counterpartyName ? "border-red-500" : "border-border"}`}
-            value={editCounterpartyName}
-            onChangeText={onChangeCounterpartyName}
+            value={counterpartyName}
+            onChangeText={setCounterpartyName}
             placeholder="Counterparty name"
             placeholderTextColor="#94A3B8"
             accessibilityLabel="Counterparty name"
@@ -100,8 +132,8 @@ export function EditTransactionModal({
           <Text className="font-semibold text-tPrimary mb-2">Counterparty account</Text>
           <TextInput
             className={`bg-cards text-tPrimary px-3 py-3 rounded-lg border ${errors.counterpartyAccount ? "border-red-500" : "border-border"}`}
-            value={editCounterpartyAccount}
-            onChangeText={onChangeCounterpartyAccount}
+            value={counterpartyAccount}
+            onChangeText={setCounterpartyAccount}
             placeholder="BE68 5390 0754 7034"
             placeholderTextColor="#94A3B8"
             accessibilityLabel="Counterparty account"

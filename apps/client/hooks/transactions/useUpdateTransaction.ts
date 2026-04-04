@@ -14,6 +14,7 @@ function mapToApiBody(input: UpdateTransactionInput): Record<string, unknown> {
   const body: Record<string, unknown> = {};
 
   if (input.amount !== undefined) body.amount = input.amount;
+  if (input.description !== undefined) body.description = input.description;
   if (input.counterpartyName !== undefined) body.counterpartyName = input.counterpartyName;
   if (input.counterpartyAccount !== undefined) body.counterpartyAccount = input.counterpartyAccount;
   if (input.categoryId !== undefined) body.categoryId = input.categoryId;
@@ -44,6 +45,7 @@ export function useUpdateTransaction() {
         const updated: ApiTransaction = {
           ...existing,
           amount: input.amount !== undefined ? String(input.amount) : existing.amount,
+          description: input.description !== undefined ? input.description : existing.description,
           counterpartyName: input.counterpartyName !== undefined ? input.counterpartyName : existing.counterpartyName,
           counterpartyAccount: input.counterpartyAccount !== undefined ? input.counterpartyAccount : existing.counterpartyAccount,
           categoryId: input.categoryId !== undefined ? input.categoryId : existing.categoryId,
