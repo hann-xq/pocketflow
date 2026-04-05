@@ -86,27 +86,10 @@ Two users are seeded by default.
 A user is considered an administrator when their `isAdmin` flag is `true`. This flag is included in the JWT payload
 and is checked by the `AdminGuard`.
 
-The `isAdmin` field is intentionally absent from `POST /users` and `PATCH /users/{id}` — it cannot be set or changed
+The `isAdmin` field is intentionally absent from `POST /users` and `PATCH /users/{id}` as it cannot be set or changed
 through the API. The only way to grant administrator access is directly in the database or via the seeder.
 
-### Decorators
-
-| Decorator      | Guard(s) applied             | HTTP response on failure        |
-|----------------|------------------------------|---------------------------------|
-| `@Auth()`      | `JwtAuthGuard`               | 401                             |
-| `@AdminOnly()` | `JwtAuthGuard`, `AdminGuard` | 401 (no token), 403 (non-admin) |
-
 ## Seeding
-
-### How it works
-
-Each service that owns seed data implements the `ISeeder` interface from `src/seeds/seeder.ts`, which requires two
-methods: `seedPriority(): number` and `seed(): Promise<void>`. The `seed()` method checks whether records already exist
-before inserting, making every run idempotent.
-
-`SeederModule` uses NestJS's `DiscoveryService` to find all providers that implement `ISeeder` at startup, sorts them by
-priority, and calls `seed()` on each in order. This means adding seed data to a new service only requires implementing
-the interface; no registration step is needed.
 
 ### Seed constants
 
@@ -116,15 +99,9 @@ update multiple places.
 
 ### E2E tests
 
-E2E tests use the same seeding mechanism. Each test resets the in-memory SQLite database with
-`dataSource.synchronize(true)` and then calls `SeederService.run()` to restore the base data. Tests resolve entity IDs
-from the seeded records via service calls in `beforeEach`, so they never depend on hardcoded UUIDs.
+E2E tests use the same seeding mechanism. Each test resets the in-memory SQLite database and restores the base data.
 
 ## HTTPS (Docker)
-
-When using Docker, the app runs behind Nginx, which handles secure (HTTPS) connections. Any plain HTTP request is
-automatically redirected to HTTPS. You can change the server's address via the `SERVER_NAME` environment variable
-(defaults to `localhost`).
 
 ### Development
 
@@ -132,7 +109,7 @@ On first start, a `cert-generator` init container uses `openssl` to create a sel
 and stores it in a Docker volume. The certificate persists across restarts.
 
 Because the certificate is self-signed, your browser will show a security warning on the first visit. Proceed through it
-once (or add a permanent exception) and subsequent requests will work without interruption.
+once (or add a permanent exception); the following requests should work without interruption.
 
 ### Production
 
@@ -208,7 +185,7 @@ ABN_AMRO_CERT_PATH=./certs/tpp.crt
 ABN_AMRO_KEY_PATH=./certs/tpp.key
 ```
 
-When both variables are set the server attaches the certificate to every token request via an `https.Agent`.
+When both variables are set, the server attaches the certificate to every token request via an `https.Agent`.
 
 ## Running tests
 
