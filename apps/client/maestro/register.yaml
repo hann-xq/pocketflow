@@ -1,0 +1,28 @@
+appId: com.pocketflow.app
+---
+- runFlow: expo_setup.yaml
+
+- assertVisible: "Welcome to PocketFlow"
+
+- tapOn: ".*Sign up"
+- assertVisible: "Create Account"
+
+# Submitting the form with empty fields must show a validation error.
+- tapOn:
+    text: Create account
+    index: -1
+- assertVisible: "Please fill in all fields."
+
+- tapOn: "First name"
+- inputText: "John"
+- tapOn: "Last name"
+- inputText: "Doe"
+- tapOn: "Email"
+- inputText: "test@email.com"
+- tapOn: "Password"
+- inputText: "password"
+- tapOn: "Confirm password"
+- inputText: "password"
+- tapOn: Done
+
+- assertVisible: "Your spendings"

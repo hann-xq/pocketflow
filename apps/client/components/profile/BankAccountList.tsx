@@ -40,8 +40,9 @@ export function BankAccountList({
           icon="plus"
           size={20}
           iconColor="#fff"
-          containerColor={colors.secondary}
+          containerColor={error ? colors.tSecondary : colors.secondary}
           onPress={onAdd}
+          disabled={!!error}
           accessibilityLabel="Add bank account"
           style={{ margin: 0 }}
         />

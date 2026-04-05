@@ -12,6 +12,8 @@ import type { ApiTransaction } from "@/lib/types";
 import { CategoryItem } from "@/components/insights/CategoryItem";
 import { InsightsTabBar, type Tab } from "@/components/insights/InsightsTabBar";
 import { MonthlyBarChart, type MonthData } from "@/components/insights/MonthlyBarChart";
+import { useBankAccounts } from "@/hooks/bank-accounts/useBankAccounts";
+import { useCategories } from "@/hooks/categories/useCategories";
 
 function getLastMonths(n: number): MonthData[] {
   const result: MonthData[] = [];
@@ -39,6 +41,10 @@ function filterLast30Days(transactions: ApiTransaction[]): ApiTransaction[] {
 }
 
 export default function Insights() {
+  // Prefetch application and user data that are most likely not going to change often.
+  useBankAccounts();
+  useCategories();
+
   const [activeTab, setActiveTab] = useState<Tab>("spendings");
 
   const { data: transactions = [], isLoading, error, refetch } = useTransactions();

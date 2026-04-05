@@ -1,0 +1,40 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Transactions tab
+    file: login.yaml
+
+- tapOn: Profile tab
+- runFlow:
+    when:
+      visible: "No bank accounts found"
+    file: bank_account_create.yaml
+
+- tapOn: Connect My Savings with ABN AMRO
+- assertVisible: Connect ABN AMRO
+# The ABN AMRO sandbox is wonky; it usually does not work the first time. Try to open it again.
+- tapOn: Cancel ABN AMRO connection
+- tapOn: Connect My Savings with ABN AMRO
+- assertVisible: Connect ABN AMRO
+- assertVisible: User Consent Page
+- tapOn: NL12ABNA9999876523
+- tapOn: NL91ABNA9999428707
+# The same goes for submitting. Double click usually makes it work fine. 
+- tapOn: Submit
+- tapOn:
+    text: Submit
+    optional: true
+- assertVisible: Remove Connection
+
+- tapOn: Sync transactions for My Savings
+- tapOn: Transactions tab
+- assertVisible: Unknown, +€142.78
+
+- tapOn: Profile tab
+- tapOn: Remove Connection
+- assertVisible: Remove ABN AMRO connection for "My Savings"?
+- tapOn: REMOVE
+- assertNotVisible: Remove Connection
+- assertNotVisible: Sync transactions for My Savings
+- assertVisible: Connect My Savings with ABN AMRO

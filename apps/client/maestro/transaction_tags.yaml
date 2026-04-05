@@ -1,0 +1,40 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Transactions tab
+    file: login.yaml
+
+- tapOn: Transactions tab
+- runFlow:
+    when:
+      notVisible: Albert Heijn, -€200.00
+    file: transaction_create.yaml
+
+- tapOn: Transactions tab
+- tapOn: Albert Heijn, -€200.00
+- tapOn: Edit tags
+- assertVisible: No tags added yet
+- tapOn: Tag name input
+- inputRandomText:
+    length: 5
+- copyTextFrom:
+    text: Tag name input
+- tapOn: Create tag ${maestro.copiedText}
+# Tap on a random position on the screen to unfocus the keyboard.
+- tapOn:
+    point: 80%,50%
+- assertVisible: \#${maestro.copiedText}
+- assertNotVisible: No tags added yet
+
+# Ensure that the same tag cannot be created again.
+- tapOn: Tag name input
+- inputText: ${maestro.copiedText}
+- assertNotVisible: Create tag ${maestro.copiedText}
+
+- tapOn: Save tags
+- tapOn: View all transactions tagged ${maestro.copiedText}
+- assertVisible: Albert Heijn, -€200.00
+- tapOn: Go back
+- tapOn: Go back
+- assertVisible: Transactions tab

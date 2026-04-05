@@ -1,0 +1,21 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Transactions tab
+    file: login.yaml
+
+# Open all screens to make sure we prefetch data before killing the network connection.
+- tapOn: Transactions tab
+- tapOn: Profile tab
+
+- setAirplaneMode: enabled
+- runFlow: transaction_create.yaml
+- setAirplaneMode: disabled
+
+# Validate that, after coming back to the online mode, the data persists.
+- assertNotVisible: Sync failed
+- tapOn: Transactions tab
+- assertVisible: Albert Heijn, -€200.00
+- tapOn: Profile tab
+- assertVisible: NL91ABNA9999428707

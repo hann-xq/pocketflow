@@ -1,0 +1,34 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Transactions tab
+    file: login.yaml
+
+- tapOn: Transactions tab
+- runFlow:
+    when:
+      notVisible: Albert Heijn, -€200.00
+    file: transaction_create.yaml
+
+# First, ensure that the transaction could be deleted by swiping.
+- tapOn: Transactions tab
+- swipe:
+    from:
+      text: Albert Heijn, -€200.00
+    direction: LEFT
+- assertVisible: Are you sure you want to delete "Albert Heijn"?
+- tapOn: CANCEL
+
+# Then delete the transaction from its own page.
+- tapOn: Albert Heijn, -€200.00
+- tapOn: Delete transaction
+- assertVisible: Are you sure you want to delete "Albert Heijn"?
+- tapOn: DELETE
+
+# Check that we can see the toast notification and the Transactions page and that the transaction is gone.
+- assertVisible:
+    id: toastContentContainer
+- assertVisible: Transactions tab
+- assertVisible: Add new transaction
+- assertNotVisible: Albert Heijn, -€200.00
