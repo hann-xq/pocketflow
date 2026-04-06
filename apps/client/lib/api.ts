@@ -6,7 +6,6 @@ type QueryParams = Record<string, string | number | boolean | undefined>;
 class API {
   private token: string | null = null;
 
-
   applyToken(token: string | null) {
     this.token = token;
   }

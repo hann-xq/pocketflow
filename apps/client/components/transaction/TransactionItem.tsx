@@ -31,7 +31,7 @@ export const TransactionItem = memo(function TransactionItem({
       activeOpacity={0.7}
       onPress={() => router.push({ pathname: "/transactions/[id]", params: { id: item.id, data: JSON.stringify(item) } })}
       accessibilityRole="button"
-      accessibilityLabel={`${displayTitle}, ${isExpense ? "-" : "+"}€${Math.abs(amount).toFixed(2)}`}
+      accessibilityLabel={`${displayTitle}, ${isExpense ? "" : "+"}${formatCurrency(amount)}`}
       accessibilityHint="Opens transaction details"
       accessibilityActions={onDelete ? [{ name: "delete", label: "Delete transaction" }] : undefined}
       onAccessibilityAction={onDelete ? (event) => {

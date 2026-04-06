@@ -3,5 +3,5 @@ import { db } from './client';
 import migrations from '../drizzle/migrations';
 
 export async function runMigrations(): Promise<void> {
-    await migrate(db, migrations);
+  await migrate(db, migrations);
 }
