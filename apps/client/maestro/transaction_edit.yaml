@@ -29,6 +29,7 @@ appId: com.pocketflow.app
     index: 1
 - eraseText: 50
 - inputText: "Bol.com"
+- takeScreenshot: transaction_edit_form
 - tapOn: Save transaction
 
 - assertVisible: Bol.com, -€5,000.00
@@ -38,11 +39,13 @@ appId: com.pocketflow.app
 - tapOn: "Category: .*. Tap to edit."
 - tapOn: Entertainment
 - assertVisible: "Category: Entertainment. Tap to edit."
+- takeScreenshot: transaction_edit_detail
 
 # Make sure that the updated transaction is propagated in the rest of the application.
 - tapOn: Go back
-- assertVisible: Bol.com, -€5000.00
+- assertVisible: Bol.com, -€5,000.00
 - tapOn: Insights tab
 - tapOn: Entertainment, .*
-- assertVisible: Bol.com, -€5000.00
+- assertVisible: Bol.com, -€5,000.00
+- takeScreenshot: transaction_edit_insights
 - tapOn: Go back

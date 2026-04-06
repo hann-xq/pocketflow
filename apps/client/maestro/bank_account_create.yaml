@@ -16,5 +16,7 @@ appId: com.pocketflow.app
 - inputText: "My Savings"
 - tapOn: Account number (IBAN)
 - inputText: NL91ABNA9999428707
+- takeScreenshot: bank_account_create_before
 - tapOn: Create bank account
 - assertVisible: Connect ABN AMRO
+- takeScreenshot: bank_account_create_after

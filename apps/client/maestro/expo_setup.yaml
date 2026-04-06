@@ -4,9 +4,17 @@ appId: com.pocketflow.app
 - launchApp:
     clearState: true
 
+# The launch of the application can take a while.
+- extendedWaitUntil:
+    visible:
+      text: "^http://.*"
+    timeout: 20000
+    optional: true
+
 - tapOn:
     text: "^http://.*"
     optional: true
+    waitToSettleTimeoutMs: 5000
 - tapOn:
     text: "Close"
     optional: true

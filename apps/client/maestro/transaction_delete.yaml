@@ -18,6 +18,7 @@ appId: com.pocketflow.app
       text: Albert Heijn, -€200.00
     direction: LEFT
 - assertVisible: Are you sure you want to delete "Albert Heijn"?
+- takeScreenshot: transaction_delete_list
 - tapOn: CANCEL
 
 # Then delete the transaction from its own page.

@@ -1,0 +1,31 @@
+appId: com.pocketflow.app
+---
+- runFlow:
+    when:
+      notVisible: Profile tab
+    file: login.yaml
+
+- tapOn: Profile tab
+- tapOn: Delete account
+- assertVisible:
+    text: Delete account
+    index: -1
+    enabled: false
+- takeScreenshot: delete_disabled
+
+- tapOn:
+    text: Type Confirm to proceed
+    index: 1
+- inputText: Confirm
+- assertVisible:
+    text: Delete account
+    index: -1
+    enabled: true
+- takeScreenshot: delete_enabled
+- tapOn:
+    text: Delete account
+    index: -1
+
+# We are back on the main page.
+- assertVisible: "Welcome to PocketFlow"
+- takeScreenshot: delete_success

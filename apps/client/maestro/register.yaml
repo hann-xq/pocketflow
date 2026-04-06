@@ -13,6 +13,8 @@ appId: com.pocketflow.app
     index: -1
 - assertVisible: "Please fill in all fields."
 
+- takeScreenshot: register_error
+
 - tapOn: "First name"
 - inputText: "John"
 - tapOn: "Last name"
@@ -26,3 +28,4 @@ appId: com.pocketflow.app
 - tapOn: Done
 
 - assertVisible: "Your spendings"
+- takeScreenshot: register_success

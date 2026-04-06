@@ -35,6 +35,7 @@ appId: com.pocketflow.app
     text: Counterparty account
     index: 1
 - inputText: NL12ABNA9999876523
+- takeScreenshot: transaction_create_form
 - tapOn: Save transaction
 
 - assertVisible: Albert Heijn, -€200.00
@@ -45,9 +46,11 @@ appId: com.pocketflow.app
 - assertVisible:
     text: Albert Heijn
     index: 2
+- takeScreenshot: transaction_create_detail
 
 - tapOn: Go back
 - tapOn: Insights tab
 - tapOn: Groceries, .*
 - assertVisible: Albert Heijn, -€200.00
+- takeScreenshot: transaction_create_insights
 - tapOn: Go back

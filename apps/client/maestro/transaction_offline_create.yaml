@@ -17,5 +17,7 @@ appId: com.pocketflow.app
 - assertNotVisible: Sync failed
 - tapOn: Transactions tab
 - assertVisible: Albert Heijn, -€200.00
+- takeScreenshot: transaction_offline_transactions
 - tapOn: Profile tab
 - assertVisible: NL91ABNA9999428707
+- takeScreenshot: transaction_offline_profile

@@ -7,6 +7,7 @@ appId: com.pocketflow.app
 # Submitting the form with empty fields must show a validation error.
 - tapOn: "Sign in"
 - assertVisible: "Please enter your email and password."
+- takeScreenshot: login_fail
 
 # Entering valid credentials and signing in must navigate to the main screen.
 - tapOn: "Email"
@@ -15,3 +16,4 @@ appId: com.pocketflow.app
 - inputText: "password"
 - tapOn: Done
 - assertVisible: "Your spendings"
+- takeScreenshot: login_success

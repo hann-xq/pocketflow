@@ -17,6 +17,7 @@ appId: com.pocketflow.app
 - assertVisible:
     text: Delete account
     enabled: true
+- takeScreenshot: online
 
 - setAirplaneMode: enabled
 - assertVisible:
@@ -28,4 +29,5 @@ appId: com.pocketflow.app
 - assertVisible:
     text: Log out
     enabled: true
+- takeScreenshot: offline
 - setAirplaneMode: disabled

@@ -18,6 +18,7 @@ appId: com.pocketflow.app
 - tapOn: Connect My Savings with ABN AMRO
 - assertVisible: Connect ABN AMRO
 - assertVisible: User Consent Page
+- takeScreenshot: abn_armo_consent
 - tapOn: NL12ABNA9999876523
 - tapOn: NL91ABNA9999428707
 # The same goes for submitting. Double click usually makes it work fine. 
@@ -26,10 +27,12 @@ appId: com.pocketflow.app
     text: Submit
     optional: true
 - assertVisible: Remove Connection
+- takeScreenshot: abn_amro_success
 
 - tapOn: Sync transactions for My Savings
 - tapOn: Transactions tab
 - assertVisible: Unknown, +€142.78
+- takeScreenshot: abn_amro_transactions
 
 - tapOn: Profile tab
 - tapOn: Remove Connection
@@ -38,3 +41,4 @@ appId: com.pocketflow.app
 - assertNotVisible: Remove Connection
 - assertNotVisible: Sync transactions for My Savings
 - assertVisible: Connect My Savings with ABN AMRO
+- takeScreenshot: abn_amro_final

@@ -11,6 +11,9 @@ appId: com.pocketflow.app
       notVisible: Albert Heijn, -€200.00
     file: transaction_create.yaml
 
+- tapOn: Insights tab
+- takeScreenshot: bank_account_delete_before
+
 # Since there is at least one transaction, we know that there must be the test bank account, too.
 - tapOn: Profile tab
 - tapOn: Delete My Savings
@@ -20,6 +23,7 @@ appId: com.pocketflow.app
 - assertVisible:
     id: toastContentContainer
 - assertVisible: No bank accounts found
+- takeScreenshot: bank_account_delete_after_profile
 
 - tapOn: Transactions tab
 - assertVisible: Add new transaction
@@ -27,3 +31,4 @@ appId: com.pocketflow.app
 
 - tapOn: Insights tab
 - assertNotVisible: Groceries, .*
+- takeScreenshot: bank_account_delete_after_insights

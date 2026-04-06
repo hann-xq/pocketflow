@@ -31,8 +31,11 @@ appId: com.pocketflow.app
 - tapOn: Tag name input
 - inputText: ${maestro.copiedText}
 - assertNotVisible: Create tag ${maestro.copiedText}
+- takeScreenshot: transaction_tags_added
 
 - tapOn: Save tags
+- takeScreenshot: transaction_tags_saved
+
 - tapOn: View all transactions tagged ${maestro.copiedText}
 - assertVisible: Albert Heijn, -€200.00
 - tapOn: Go back
