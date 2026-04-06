@@ -63,7 +63,7 @@ describe('TransactionList', () => {
     ];
     render(<TransactionList transactions={transactions} />);
     expect(screen.getByLabelText('Starbucks, -€3.50')).toBeTruthy();
-    expect(screen.getByLabelText('Salary, +€2500.00')).toBeTruthy();
+    expect(screen.getByLabelText('Salary, +€2,500.00')).toBeTruthy();
   });
 
   it('renders items on the same date under one section header', () => {
